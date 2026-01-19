@@ -1,0 +1,134 @@
+version: '3.8'
+
+# ===========================================
+# Broadlistening - 完全無料構成
+# ===========================================
+# 
+# 起動: docker-compose up -d
+# 停止: docker-compose down
+#
+# 事前準備:
+#   mkdir -p models
+#   wget -P models/ https://huggingface.co/liquidai/lfm-2.5-3b-gguf/resolve/main/lfm-2.5-3b-q4_k_m.gguf
+#
+
+services:
+  # ===================
+  # 意見収集（Forgejo）
+  # ===================
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:9
+    container_name: broadlistening-forgejo
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - FORGEJO__server__ROOT_URL=http://localhost:3000/
+    volumes:
+      - forgejo_data:/data
+    ports:
+      - "3000:3000"   # Web UI
+      - "2222:22"     # SSH
+    restart: unless-stopped
+    networks:
+      - broadlistening
+
+  # ===================
+  # ベクトルDB（Qdrant）
+  # ===================
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: broadlistening-qdrant
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "6333:6333"   # REST API
+      - "6334:6334"   # gRPC
+    restart: unless-stopped
+    networks:
+      - broadlistening
+
+  # ===================
+  # LLM - 分類・要約（LFM2.5）
+  # ===================
+  llm:
+    image: ghcr.io/ggerganov/llama.cpp:server
+    container_name: broadlistening-llm
+    volumes:
+      - ./models:/models:ro
+    ports:
+      - "8080:8080"
+    command: >
+      -m /models/lfm-2.5-3b-q4_k_m.gguf
+      --host 0.0.0.0
+      --port 8080
+      --ctx-size 4096
+      --n-gpu-layers 99
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    networks:
+      - broadlistening
+
+  # ===================
+  # Embedding生成（bge-m3）
+  # ===================
+  embedding:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    container_name: broadlistening-embedding
+    volumes:
+      - embedding_cache:/data
+    ports:
+      - "8081:80"
+    environment:
+      - MODEL_ID=BAAI/bge-m3
+    restart: unless-stopped
+    networks:
+      - broadlistening
+
+  # ===================
+  # パイプライン自動化（n8n）
+  # ===================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: broadlistening-n8n
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=changeme
+      - WEBHOOK_URL=http://localhost:5678/
+    volumes:
+      - n8n_data:/home/node/.n8n
+    ports:
+      - "5678:5678"
+    restart: unless-stopped
+    networks:
+      - broadlistening
+
+  # ===================
+  # Web UI - 可視化（nginx + vis.js）
+  # ===================
+  web:
+    image: nginx:alpine
+    container_name: broadlistening-web
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+    ports:
+      - "8000:80"
+    restart: unless-stopped
+    networks:
+      - broadlistening
+
+networks:
+  broadlistening:
+    driver: bridge
+
+volumes:
+  forgejo_data:
+  qdrant_data:
+  n8n_data:
+  embedding_cache:

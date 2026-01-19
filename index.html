@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Broadlistening - 意見マップ</title>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+    }
+    header {
+      background: #16213e;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 500;
+    }
+    .stats {
+      display: flex;
+      gap: 2rem;
+      font-size: 0.9rem;
+    }
+    .stat {
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #4ecca3;
+    }
+    .container {
+      display: flex;
+      height: calc(100vh - 60px);
+    }
+    #graph {
+      flex: 1;
+      background: #1a1a2e;
+    }
+    .sidebar {
+      width: 350px;
+      background: #16213e;
+      padding: 1rem;
+      overflow-y: auto;
+    }
+    .sidebar h2 {
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      color: #4ecca3;
+    }
+    .issue-card {
+      background: #1a1a2e;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 0.5rem;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .issue-card:hover {
+      transform: translateX(4px);
+    }
+    .issue-title {
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+    .issue-meta {
+      font-size: 0.8rem;
+      color: #888;
+      display: flex;
+      gap: 1rem;
+    }
+    .tag {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      margin-right: 0.3rem;
+    }
+    .tag-theme { background: #4ecca3; color: #1a1a2e; }
+    .tag-proposal { background: #3498db; }
+    .tag-problem { background: #e74c3c; }
+    .tag-question { background: #f39c12; }
+    .cluster-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.8rem;
+    }
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🗣️ Broadlistening - 意見マップ</h1>
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value" id="total-count">0</div>
+        <div>総意見数</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="cluster-count">0</div>
+        <div>クラスタ数</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="today-count">0</div>
+        <div>本日の投稿</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div id="graph"></div>
+    <div class="sidebar">
+      <h2>クラスタ</h2>
+      <div class="cluster-legend" id="legend"></div>
+      
+      <h2>選択中のIssue</h2>
+      <div id="selected-issue">
+        <p style="color: #888; font-size: 0.9rem;">ノードをクリックすると詳細が表示されます</p>
+      </div>
+      
+      <h2 style="margin-top: 1rem;">最新の意見</h2>
+      <div id="recent-issues"></div>
+    </div>
+  </div>
+
+  <script>
+    // サンプルデータ（実際はissues.jsonから読み込む）
+    const sampleData = {
+      clusters: [
+        { id: "tax", label: "税制への不満", color: "#e74c3c" },
+        { id: "education", label: "教育政策", color: "#3498db" },
+        { id: "welfare", label: "福祉・医療", color: "#2ecc71" },
+        { id: "environment", label: "環境問題", color: "#9b59b6" }
+      ],
+      issues: [
+        { id: 1, title: "消費税が高すぎる", cluster: "tax", type: "problem", reactions: { up: 42, down: 5 } },
+        { id: 2, title: "累進消費税の導入を提案", cluster: "tax", type: "proposal", reactions: { up: 28, down: 12 } },
+        { id: 3, title: "給食費の無償化を", cluster: "education", type: "proposal", reactions: { up: 65, down: 3 } },
+        { id: 4, title: "教員の負担が大きい", cluster: "education", type: "problem", reactions: { up: 55, down: 2 } },
+        { id: 5, title: "介護保険の仕組みがわからない", cluster: "welfare", type: "question", reactions: { up: 18, down: 0 } },
+        { id: 6, title: "病院の待ち時間が長い", cluster: "welfare", type: "problem", reactions: { up: 38, down: 4 } },
+        { id: 7, title: "ゴミの分別ルールを簡素化して", cluster: "environment", type: "proposal", reactions: { up: 45, down: 8 } },
+        { id: 8, title: "公園にもっと緑を", cluster: "environment", type: "proposal", reactions: { up: 32, down: 1 } },
+        { id: 9, title: "固定資産税の減免制度は？", cluster: "tax", type: "question", reactions: { up: 12, down: 0 } },
+        { id: 10, title: "少人数学級の実現を", cluster: "education", type: "proposal", reactions: { up: 58, down: 5 } }
+      ]
+    };
+
+    // 統計更新
+    document.getElementById('total-count').textContent = sampleData.issues.length;
+    document.getElementById('cluster-count').textContent = sampleData.clusters.length;
+    document.getElementById('today-count').textContent = 3;
+
+    // 凡例生成
+    const legendEl = document.getElementById('legend');
+    sampleData.clusters.forEach(cluster => {
+      legendEl.innerHTML += `
+        <div class="legend-item">
+          <div class="legend-color" style="background: ${cluster.color}"></div>
+          <span>${cluster.label}</span>
+        </div>
+      `;
+    });
+
+    // ノードとエッジ生成
+    const nodes = [];
+    const edges = [];
+
+    // クラスタノード
+    sampleData.clusters.forEach(cluster => {
+      nodes.push({
+        id: cluster.id,
+        label: cluster.label,
+        shape: 'box',
+        color: { background: cluster.color, border: cluster.color },
+        font: { color: '#fff', size: 14 },
+        margin: 10
+      });
+    });
+
+    // Issueノード
+    sampleData.issues.forEach(issue => {
+      const cluster = sampleData.clusters.find(c => c.id === issue.cluster);
+      nodes.push({
+        id: `issue-${issue.id}`,
+        label: issue.title.substring(0, 15) + (issue.title.length > 15 ? '...' : ''),
+        title: issue.title,
+        shape: 'dot',
+        size: 10 + issue.reactions.up / 5,
+        color: { background: cluster.color, border: '#fff' },
+        issueData: issue
+      });
+      edges.push({
+        from: `issue-${issue.id}`,
+        to: issue.cluster,
+        color: { color: cluster.color, opacity: 0.3 }
+      });
+    });
+
+    // グラフ描画
+    const container = document.getElementById('graph');
+    const data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+    const options = {
+      physics: {
+        stabilization: { iterations: 100 },
+        barnesHut: { gravitationalConstant: -3000, springLength: 150 }
+      },
+      interaction: { hover: true, tooltipDelay: 100 }
+    };
+    const network = new vis.Network(container, data, options);
+
+    // クリックイベント
+    network.on('click', params => {
+      if (params.nodes.length > 0) {
+        const nodeId = params.nodes[0];
+        if (nodeId.startsWith('issue-')) {
+          const node = nodes.find(n => n.id === nodeId);
+          const issue = node.issueData;
+          const typeLabel = { problem: '問題提起', proposal: '提案', question: '質問' };
+          const typeClass = { problem: 'tag-problem', proposal: 'tag-proposal', question: 'tag-question' };
+          
+          document.getElementById('selected-issue').innerHTML = `
+            <div class="issue-card">
+              <div class="issue-title">${issue.title}</div>
+              <div style="margin: 0.5rem 0;">
+                <span class="tag tag-theme">${sampleData.clusters.find(c => c.id === issue.cluster).label}</span>
+                <span class="tag ${typeClass[issue.type]}">${typeLabel[issue.type]}</span>
+              </div>
+              <div class="issue-meta">
+                <span>👍 ${issue.reactions.up}</span>
+                <span>👎 ${issue.reactions.down}</span>
+              </div>
+            </div>
+          `;
+        }
+      }
+    });
+
+    // 最新の意見表示
+    const recentEl = document.getElementById('recent-issues');
+    sampleData.issues.slice(-5).reverse().forEach(issue => {
+      const cluster = sampleData.clusters.find(c => c.id === issue.cluster);
+      recentEl.innerHTML += `
+        <div class="issue-card">
+          <div class="issue-title">${issue.title}</div>
+          <div class="issue-meta">
+            <span class="tag tag-theme">${cluster.label}</span>
+            <span>👍 ${issue.reactions.up}</span>
+          </div>
+        </div>
+      `;
+    });
+  </script>
+</body>
+</html>

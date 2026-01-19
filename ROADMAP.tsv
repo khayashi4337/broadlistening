@@ -1,0 +1,36 @@
+Phase	タイトル	name	Stage	SubStage	内容	完了条件	depends_on
+Phase 1	基盤構築（MVP）	forgejo-instance-setup	Stage 1.1	1.1.1	Forgejoインスタンス構築	動作するForgejo	-
+Phase 1	基盤構築（MVP）	qdrant-docker-setup	Stage 1.1	1.1.2	Qdrant起動（Docker）	ベクトルDB稼働	-
+Phase 1	基盤構築（MVP）	lfm-model-setup	Stage 1.1	1.1.3	LFM2.5モデルセットアップ	llama.cpp server稼働	-
+Phase 1	基盤構築（MVP）	embedding-server-setup	Stage 1.1	1.1.4	Embeddingサーバ起動	bge-m3でベクトル生成可能	-
+Phase 1	基盤構築（MVP）	n8n-setup	Stage 1.1	1.1.5	n8nセットアップ	管理画面アクセス可能	-
+Phase 1	基盤構築（MVP）	forgejo-webhook-setup	Stage 1.2	1.2.1	Forgejo Webhook設定	Issue作成時にn8n発火	1.1.1,1.1.5
+Phase 1	基盤構築（MVP）	embedding-generation-workflow	Stage 1.2	1.2.2	Embedding生成ワークフロー	Issue→ベクトル変換	1.1.4,1.2.1
+Phase 1	基盤構築（MVP）	qdrant-save-search	Stage 1.2	1.2.3	Qdrant保存・検索実装	類似Issue検索動作	1.1.2,1.2.2
+Phase 1	基盤構築（MVP）	json-export	Stage 1.2	1.2.4	JSONエクスポート	issues.json自動更新	1.2.3
+Phase 1	基盤構築（MVP）	llm-classification-prompt	Stage 1.3	1.3.1	LFM分類プロンプト設計	分類精度検証	1.1.3
+Phase 1	基盤構築（MVP）	opinion-type-classification	Stage 1.3	1.3.2	意見タイプ分類（問題提起/提案/質問）	タグ自動付与	1.3.1,1.2.1
+Phase 1	基盤構築（MVP）	theme-extraction	Stage 1.3	1.3.3	テーマ抽出	テーマタグ生成	1.3.1,1.2.1
+Phase 1	基盤構築（MVP）	web-visualization	Stage 1.3	1.3.4	Web可視化（vis.js）	グラフ表示動作	1.2.4
+Phase 2	分析強化	batch-clustering-kmeans	Stage 2.1	2.1.1	バッチクラスタリング実装（K-means）	定期的な再分類	1.2.3
+Phase 2	分析強化	cluster-label-auto-generation	Stage 2.1	2.1.2	クラスタラベル自動生成	LFMによる命名	2.1.1,1.3.1
+Phase 2	分析強化	representative-opinion-pickup	Stage 2.1	2.1.3	代表意見ピックアップ	タイトル類似度計算	2.1.1
+Phase 2	分析強化	cluster-summary-page	Stage 2.1	2.1.4	クラスタ要約ページ生成	各テーマの要約表示	2.1.2,2.1.3
+Phase 2	分析強化	forgejo-reaction-aggregation	Stage 2.2	2.2.1	Forgejoリアクション集計	👍👎カウント取得	1.1.1
+Phase 2	分析強化	voting-result-display	Stage 2.2	2.2.2	投票結果の可視化	賛成率表示	2.2.1,1.3.4
+Phase 2	分析強化	cluster-voting-trend	Stage 2.2	2.2.3	クラスタ別投票傾向分析	どの層が賛成/反対か	2.1.1,2.2.1
+Phase 2	分析強化	consensus-score	Stage 2.2	2.2.4	合意度スコア算出	分断度・収束度の指標	2.2.3
+Phase 2	分析強化	weekly-summary	Stage 2.3	2.3.1	週次サマリー自動生成	LFMで今週の意見傾向	2.1.1,1.3.1
+Phase 2	分析強化	theme-report	Stage 2.3	2.3.2	テーマ別レポート	深掘り分析	2.1.4
+Phase 2	分析強化	action-item-extraction	Stage 2.3	2.3.3	アクションアイテム抽出	対応すべき課題リスト	2.3.1
+Phase 2	分析強化	change-visualization	Stage 2.3	2.3.4	変化の可視化	前週との比較	2.3.1
+Phase 3	拡張・スケール	slack-integration	Stage 3.1	3.1.1	Slack連携	Slackから意見投稿可能	1.2.1
+Phase 3	拡張・スケール	web-form-submission	Stage 3.1	3.1.2	Webフォーム（匿名投稿）	一般向け窓口	1.2.1
+Phase 3	拡張・スケール	csv-import	Stage 3.1	3.1.3	CSV一括インポート	既存データ投入	1.2.3
+Phase 3	拡張・スケール	source-normalization	Stage 3.1	3.1.4	ソース統合・正規化	出典管理	3.1.1,3.1.2,3.1.3
+Phase 3	拡張・スケール	public-dashboard	Stage 3.2	3.2.1	公開ダッシュボード	意見地図の外部公開	1.3.4,2.1.4
+Phase 3	拡張・スケール	api-release	Stage 3.2	3.2.2	API公開	他システム連携	3.2.1
+Phase 3	拡張・スケール	auth-integration	Stage 3.2	3.2.3	認証連携（LDAP/OIDC）	企業認証対応	1.1.1
+Phase 3	拡張・スケール	moderation-filter	Stage 3.2	3.2.4	モデレーション・フィルタ	荒らし対策	1.3.2
+Phase 3	拡張・スケール	operation-docs	Stage 3.3	3.3.1	運用ドキュメント	README, 手順書	-
+Phase 3	拡張・スケール	oss-release	Stage 3.3	3.3.2	OSS公開	他団体が使えるように	3.3.1
