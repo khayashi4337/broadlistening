@@ -1,0 +1,2 @@
+# This directory stores LLM models
+# Download LFM2.5: https://huggingface.co/liquidai/lfm-2.5-3b-gguf/resolve/main/lfm-2.5-3b-q4_k_m.gguf

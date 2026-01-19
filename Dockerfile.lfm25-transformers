@@ -1,0 +1,52 @@
+# ===========================================
+# LFM2.5 Transformers Server Dockerfile
+# Model: LiquidAI/LFM2.5-1.2B-JP (Japanese)
+# ===========================================
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+# Note: Using CPU-only torch for smaller image size
+RUN pip install --no-cache-dir \
+    torch==2.1.2 --index-url https://download.pytorch.org/whl/cpu
+
+RUN pip install --no-cache-dir \
+    transformers==4.36.2 \
+    accelerate==0.25.0 \
+    sentencepiece==0.1.99 \
+    protobuf==4.25.1 \
+    fastapi==0.104.1 \
+    uvicorn[standard]==0.24.0 \
+    pydantic==2.5.2
+
+# Copy server script
+COPY scripts/lfm25_transformers_server.py /app/server.py
+
+# Create cache directory for model downloads
+RUN mkdir -p /root/.cache/huggingface
+
+# Environment variables
+ENV MODEL_ID=LiquidAI/LFM2.5-1.2B-JP
+ENV DEVICE=cpu
+ENV MAX_LENGTH=2048
+ENV PORT=8080
+ENV TRANSFORMERS_CACHE=/root/.cache/huggingface
+ENV HF_HOME=/root/.cache/huggingface
+
+# Expose port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=300s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')" || exit 1
+
+# Run server
+CMD ["python", "server.py"]

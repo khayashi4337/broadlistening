@@ -1,15 +1,15 @@
 version: '3.8'
 
 # ===========================================
-# Broadlistening - 完全無料構成
+# Broadlistening - CPU版（GPU不要）
 # ===========================================
-# 
-# 起動: docker-compose up -d
-# 停止: docker-compose down
+#
+# 起動: docker-compose -f docker-compose.cpu.yml up -d
+# 停止: docker-compose -f docker-compose.cpu.yml down
 #
 # 事前準備:
-#   mkdir -p models
-#   wget -P models/ https://huggingface.co/liquidai/lfm-2.5-3b-gguf/resolve/main/lfm-2.5-3b-q4_k_m.gguf
+#   1. web/ ディレクトリにindex.htmlを配置
+#   2. 初回起動時にHuggingFaceからモデルが自動ダウンロードされます（約5GB）
 #
 
 services:
@@ -48,31 +48,32 @@ services:
       - broadlistening
 
   # ===================
-  # LLM - 分類・要約（LFM2.5）
+  # LLM - 分類・要約（LFM2.5）Transformersベース
   # ===================
   llm:
     build:
       context: .
-      dockerfile: Dockerfile.lfm25
+      dockerfile: Dockerfile.lfm25-transformers
     container_name: broadlistening-llm
     volumes:
-      - ./models:/models:ro
+      - huggingface_cache:/root/.cache/huggingface
     ports:
       - "8080:8080"
     environment:
-      - MODEL_PATH=/models/LFM2.5-1.2B-Instruct-Q4_K_M.gguf
-      - N_GPU_LAYERS=0
-      - N_CTX=4096
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+      - MODEL_ID=LiquidAI/LFM2.5-1.2B-JP
+      - DEVICE=cpu
+      - MAX_LENGTH=2048
+      - PORT=8080
     restart: unless-stopped
     networks:
       - broadlistening
+    # Initial model download may take time
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 30s
+      retries: 10
+      start_period: 300s
 
   # ===================
   # Embedding生成（bge-m3）
@@ -131,3 +132,4 @@ volumes:
   qdrant_data:
   n8n_data:
   embedding_cache:
+  huggingface_cache:
