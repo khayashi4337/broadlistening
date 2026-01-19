@@ -123,3 +123,13 @@ results/
 *.backup
 *.old
 *~
+
+# ==========================================
+# Development & Testing Scripts (Not for Production)
+# ==========================================
+scripts/download_model.sh
+scripts/install_ollama_model.sh
+scripts/lfm25_server.py
+scripts/ollama_setup_quick.sh
+scripts/register_lfm25.py
+scripts/test_lfm25.sh
