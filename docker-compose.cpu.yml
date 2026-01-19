@@ -8,8 +8,8 @@ version: '3.8'
 # 停止: docker-compose -f docker-compose.cpu.yml down
 #
 # 事前準備:
-#   1. models/ ディレクトリにLFM2.5モデルをダウンロード
-#   2. web/ ディレクトリにindex.htmlを配置
+#   1. web/ ディレクトリにindex.htmlを配置
+#   2. 初回起動時にHuggingFaceからモデルが自動ダウンロードされます（約5GB）
 #
 
 services:
@@ -48,24 +48,32 @@ services:
       - broadlistening
 
   # ===================
-  # LLM - 分類・要約（LFM2.5）CPU版
+  # LLM - 分類・要約（LFM2.5）Transformersベース
   # ===================
   llm:
-    image: ghcr.io/ggerganov/llama.cpp:server
+    build:
+      context: .
+      dockerfile: Dockerfile.lfm25-transformers
     container_name: broadlistening-llm
     volumes:
-      - ./models:/models:ro
+      - huggingface_cache:/root/.cache/huggingface
     ports:
       - "8080:8080"
-    command: >
-      -m /models/lfm-2.5-3b-q4_k_m.gguf
-      --host 0.0.0.0
-      --port 8080
-      --ctx-size 4096
-      --threads 4
+    environment:
+      - MODEL_ID=LiquidAI/LFM2.5-1.2B-JP
+      - DEVICE=cpu
+      - MAX_LENGTH=2048
+      - PORT=8080
     restart: unless-stopped
     networks:
       - broadlistening
+    # Initial model download may take time
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 30s
+      retries: 10
+      start_period: 300s
 
   # ===================
   # Embedding生成（bge-m3）
@@ -124,3 +132,4 @@ volumes:
   qdrant_data:
   n8n_data:
   embedding_cache:
+  huggingface_cache:

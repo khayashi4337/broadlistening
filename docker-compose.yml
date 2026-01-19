@@ -51,18 +51,18 @@ services:
   # LLM - 分類・要約（LFM2.5）
   # ===================
   llm:
-    image: ghcr.io/ggerganov/llama.cpp:server
+    build:
+      context: .
+      dockerfile: Dockerfile.lfm25
     container_name: broadlistening-llm
     volumes:
       - ./models:/models:ro
     ports:
       - "8080:8080"
-    command: >
-      -m /models/lfm-2.5-3b-q4_k_m.gguf
-      --host 0.0.0.0
-      --port 8080
-      --ctx-size 4096
-      --n-gpu-layers 99
+    environment:
+      - MODEL_PATH=/models/LFM2.5-1.2B-Instruct-Q4_K_M.gguf
+      - N_GPU_LAYERS=0
+      - N_CTX=4096
     deploy:
       resources:
         reservations:
