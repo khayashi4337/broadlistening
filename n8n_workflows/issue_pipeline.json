@@ -1,0 +1,199 @@
+{
+  "name": "Forgejo Issue Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "forgejo-issue",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-node",
+      "name": "Webhook - Forgejo",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "forgejo-issue"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"ok\", \"issue_id\": $json.issue.number } }}"
+      },
+      "id": "response-node",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.action }}",
+              "operation": "equals",
+              "value2": "opened"
+            }
+          ]
+        }
+      },
+      "id": "filter-node",
+      "name": "Filter: Issue Opened",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "command": "echo '{{ JSON.stringify($json.issue) }}' | python3 /scripts/generate_embedding.py -"
+      },
+      "id": "embedding-node",
+      "name": "Generate Embedding",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [850, 200],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "jsonata",
+        "jsonataExpression": "{\n  \"issue_id\": $json.issue.number,\n  \"embedding\": $eval($json.stdout).embedding,\n  \"metadata\": {\n    \"title\": $json.issue.title,\n    \"body\": $json.issue.body,\n    \"created_at\": $json.issue.created_at,\n    \"updated_at\": $json.issue.updated_at,\n    \"url\": $json.issue.html_url,\n    \"user\": $json.issue.user.login,\n    \"labels\": $json.issue.labels ~> $map(function($v) { $v.name })\n  }\n}"
+      },
+      "id": "format-node",
+      "name": "Format for Qdrant",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "command": "echo '{{ JSON.stringify($json) }}' | python3 /scripts/qdrant_manager.py upsert"
+      },
+      "id": "qdrant-upsert-node",
+      "name": "Save to Qdrant",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1250, 200],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "command": "echo '{{ JSON.stringify({ \"embedding\": $json.embedding, \"limit\": 5 }) }}' | python3 /scripts/qdrant_manager.py search"
+      },
+      "id": "search-node",
+      "name": "Search Similar Issues",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1450, 200],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "command": "python3 /scripts/export_issues_json.py"
+      },
+      "id": "export-node",
+      "name": "Export to JSON",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1650, 200],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "jsonata",
+        "jsonataExpression": "{\n  \"issue_id\": $json.issue.number,\n  \"title\": $json.issue.title,\n  \"similar_count\": $eval($json.stdout).results ~> $count(),\n  \"similar_issues\": $eval($json.stdout).results\n}"
+      },
+      "id": "final-output-node",
+      "name": "Final Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1850, 200]
+    }
+  ],
+  "connections": {
+    "Webhook - Forgejo": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filter: Issue Opened",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter: Issue Opened": {
+      "main": [
+        [
+          {
+            "node": "Generate Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Embedding": {
+      "main": [
+        [
+          {
+            "node": "Format for Qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format for Qdrant": {
+      "main": [
+        [
+          {
+            "node": "Save to Qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Qdrant": {
+      "main": [
+        [
+          {
+            "node": "Search Similar Issues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Similar Issues": {
+      "main": [
+        [
+          {
+            "node": "Export to JSON",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1",
+  "id": "forgejo-issue-pipeline",
+  "meta": {
+    "instanceId": "broadlistening"
+  },
+  "tags": []
+}
