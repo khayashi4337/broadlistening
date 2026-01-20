@@ -3,6 +3,9 @@
 Qdrant管理スクリプト
 
 ベクトルの保存、類似検索、コレクション管理を行います。
+
+依存関係:
+    - requests: HTTP API通信
 """
 
 import sys
@@ -11,6 +14,12 @@ import requests
 from typing import List, Dict, Optional, Any
 import logging
 from datetime import datetime
+
+# 定数定義
+DEFAULT_COLLECTION_NAME = "broadlistening_issues"
+DEFAULT_VECTOR_SIZE = 1024
+DEFAULT_DISTANCE_METRIC = "Cosine"
+DEFAULT_HEALTH_TIMEOUT = 5
 
 # ロギング設定
 logging.basicConfig(
@@ -23,18 +32,19 @@ logger = logging.getLogger(__name__)
 class QdrantManager:
     """Qdrant操作クラス"""
 
-    def __init__(self, host: str = "qdrant", port: int = 6333):
+    def __init__(self, host: str = "qdrant", port: int = 6333, collection_name: str = DEFAULT_COLLECTION_NAME):
         """
         初期化
 
         Args:
             host: Qdrantホスト名
             port: Qdrantポート番号
+            collection_name: コレクション名
         """
         self.base_url = f"http://{host}:{port}"
-        self.collection_name = "broadlistening_issues"
+        self.collection_name = collection_name
 
-    def create_collection(self, vector_size: int = 1024, force: bool = False) -> bool:
+    def create_collection(self, vector_size: int = DEFAULT_VECTOR_SIZE, force: bool = False) -> bool:
         """
         コレクション作成（既存の場合はスキップ）
 
@@ -67,7 +77,7 @@ class QdrantManager:
             payload = {
                 "vectors": {
                     "size": vector_size,
-                    "distance": "Cosine"  # コサイン類似度
+                    "distance": DEFAULT_DISTANCE_METRIC  # コサイン類似度
                 }
             }
 
@@ -237,9 +247,13 @@ class QdrantManager:
         """Qdrantの稼働確認"""
         try:
             health_url = f"{self.base_url}/healthz"
-            response = requests.get(health_url, timeout=5)
+            response = requests.get(health_url, timeout=DEFAULT_HEALTH_TIMEOUT)
             return response.status_code == 200
-        except:
+        except requests.exceptions.RequestException as e:
+            logger.error(f"ヘルスチェック失敗（API通信エラー）: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"ヘルスチェック失敗（予期しないエラー）: {e}")
             return False
 
 

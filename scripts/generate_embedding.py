@@ -4,13 +4,22 @@ Embedding生成スクリプト
 
 Issueのテキストからbge-m3を使ってベクトル表現を生成します。
 n8nワークフローまたはバッチ処理から呼び出されます。
+
+依存関係:
+    - requests: HTTP API通信
 """
 
 import sys
 import json
 import requests
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 import logging
+
+# 定数定義
+DEFAULT_TIMEOUT_SECONDS = 30
+BATCH_TIMEOUT_SECONDS = 60
+HEALTH_CHECK_TIMEOUT_SECONDS = 10
+EMBEDDING_DIMENSION = 1024
 
 # ロギング設定
 logging.basicConfig(
@@ -33,7 +42,7 @@ class EmbeddingGenerator:
         self.api_url = api_url
         self.embed_endpoint = f"{api_url}/embed"
 
-    def generate(self, text: str, timeout: int = 30) -> Optional[List[float]]:
+    def generate(self, text: str, timeout: int = DEFAULT_TIMEOUT_SECONDS) -> Optional[List[float]]:
         """
         テキストからEmbeddingを生成
 
@@ -85,7 +94,7 @@ class EmbeddingGenerator:
             logger.error(f"レスポンス解析エラー: {e}")
             return None
 
-    def generate_batch(self, texts: List[str], timeout: int = 60) -> List[Optional[List[float]]]:
+    def generate_batch(self, texts: List[str], timeout: int = BATCH_TIMEOUT_SECONDS) -> List[Optional[List[float]]]:
         """
         複数テキストからEmbeddingを一括生成
 
@@ -114,10 +123,13 @@ class EmbeddingGenerator:
         """
         try:
             # 簡単なテストテキスト
-            test_embedding = self.generate("テスト", timeout=10)
+            test_embedding = self.generate("テスト", timeout=HEALTH_CHECK_TIMEOUT_SECONDS)
             return test_embedding is not None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"ヘルスチェック失敗（API通信エラー）: {e}")
+            return False
         except Exception as e:
-            logger.error(f"ヘルスチェック失敗: {e}")
+            logger.error(f"ヘルスチェック失敗（予期しないエラー）: {e}")
             return False
 
 
@@ -141,6 +153,29 @@ def create_issue_text(issue_data: Dict) -> str:
     return combined_text.strip()
 
 
+def _parse_input() -> str:
+    """
+    標準入力またはコマンドライン引数からテキストを取得
+
+    Returns:
+        パースされたテキスト
+    """
+    if sys.argv[1] != "-":
+        return sys.argv[1]
+
+    # 標準入力からJSON読み込み
+    try:
+        input_data = json.load(sys.stdin)
+        if isinstance(input_data, dict):
+            # Issueオブジェクトの場合
+            return create_issue_text(input_data)
+        else:
+            return str(input_data)
+    except json.JSONDecodeError:
+        # プレーンテキストとして扱う
+        return sys.stdin.read()
+
+
 def main():
     """CLIエントリーポイント"""
 
@@ -148,7 +183,7 @@ def main():
     if len(sys.argv) < 2:
         print("使用方法:")
         print("  1. 標準入力からJSON受け取り:")
-        print("     echo '{\"title\": \"タイトル\", \"body\": \"本文\"}' | python generate_embedding.py")
+        print("     echo '{\"title\": \"タイトル\", \"body\": \"本文\"}' | python generate_embedding.py -")
         print()
         print("  2. テキスト直接指定:")
         print("     python generate_embedding.py \"テキスト\"")
@@ -169,21 +204,8 @@ def main():
             print("ERROR: Embedding APIに接続できません")
             sys.exit(1)
 
-    # テキスト直接指定モード
-    if sys.argv[1] != "-":
-        text = sys.argv[1]
-    else:
-        # 標準入力からJSON読み込み
-        try:
-            input_data = json.load(sys.stdin)
-            if isinstance(input_data, dict):
-                # Issueオブジェクトの場合
-                text = create_issue_text(input_data)
-            else:
-                text = str(input_data)
-        except json.JSONDecodeError:
-            # プレーンテキストとして扱う
-            text = sys.stdin.read()
+    # テキスト取得
+    text = _parse_input()
 
     # Embedding生成
     embedding = generator.generate(text)

@@ -4,15 +4,26 @@ issues.jsonエクスポートスクリプト
 
 Qdrantから全Issueデータを取得し、Web UI用のJSONファイルを生成します。
 vis.jsで可視化するための2D座標（UMAP）も計算します。
+
+依存関係:
+    - numpy: 次元削減（PCA）
+    - qdrant_manager: Qdrantデータ取得
 """
 
 import sys
 import json
 import os
 from typing import List, Dict, Any
+from datetime import datetime
 import logging
 import numpy as np
 from qdrant_manager import QdrantManager
+
+# 定数定義
+DEFAULT_OUTPUT_PATH = "/usr/share/nginx/html/data/issues.json"
+FALLBACK_OUTPUT_PATH = "./web/data/issues.json"
+VIS_JS_SCALE_FACTOR = 500
+TOOLTIP_MAX_LENGTH = 200
 
 # ロギング設定
 logging.basicConfig(
@@ -25,7 +36,7 @@ logger = logging.getLogger(__name__)
 class IssueJSONExporter:
     """Issue JSONエクスポートクラス"""
 
-    def __init__(self, output_path: str = "/usr/share/nginx/html/data/issues.json"):
+    def __init__(self, output_path: str = DEFAULT_OUTPUT_PATH):
         """
         初期化
 
@@ -101,9 +112,9 @@ class IssueJSONExporter:
                 nodes.append({
                     "id": point["issue_id"],
                     "label": metadata.get("title", f"Issue #{point['issue_id']}"),
-                    "title": metadata.get("body", "")[:200],  # ツールチップ用（短縮）
-                    "x": float(coords_2d[i, 0]) * 500,  # vis.jsのスケールに合わせる
-                    "y": float(coords_2d[i, 1]) * 500,
+                    "title": metadata.get("body", "")[:TOOLTIP_MAX_LENGTH],  # ツールチップ用（短縮）
+                    "x": float(coords_2d[i, 0]) * VIS_JS_SCALE_FACTOR,  # vis.jsのスケールに合わせる
+                    "y": float(coords_2d[i, 1]) * VIS_JS_SCALE_FACTOR,
                     "url": metadata.get("url", ""),
                     "created_at": metadata.get("created_at", ""),
                     "user": metadata.get("user", "anonymous"),
@@ -149,7 +160,6 @@ class IssueJSONExporter:
 
     def _get_timestamp(self) -> str:
         """現在時刻のISO形式文字列を取得"""
-        from datetime import datetime
         return datetime.now().isoformat()
 
 
@@ -163,9 +173,9 @@ def main():
         # デフォルトはDocker内のnginxパス
         # ローカル実行時は相対パスに変更
         if os.path.exists("/usr/share/nginx/html"):
-            output_path = "/usr/share/nginx/html/data/issues.json"
+            output_path = DEFAULT_OUTPUT_PATH
         else:
-            output_path = "./web/data/issues.json"
+            output_path = FALLBACK_OUTPUT_PATH
 
     logger.info(f"出力先: {output_path}")
 
