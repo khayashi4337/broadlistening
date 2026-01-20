@@ -7,27 +7,26 @@ Model: LiquidAI/LFM2.5-1.2B-JP
 
 import os
 import logging
+from contextlib import asynccontextmanager
 from typing import Optional, List
 
 import torch
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-app = FastAPI(
-    title="LFM2.5 Transformers Server",
-    description="Japanese-specialized LLM API using LiquidAI/LFM2.5-1.2B-JP",
-    version="1.0.0"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
+logger = logging.getLogger(__name__)
 
 # Model configuration
 MODEL_ID = os.getenv("MODEL_ID", "LiquidAI/LFM2.5-1.2B-JP")
 DEVICE = os.getenv("DEVICE", "cpu")
 MAX_LENGTH = int(os.getenv("MAX_LENGTH", "2048"))
+MAX_INPUT_LENGTH = int(os.getenv("MAX_INPUT_LENGTH", "4000"))  # 入力テキスト最大文字数
 
 # Global model and tokenizer
 model = None
@@ -79,10 +78,22 @@ def load_model():
         raise
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize model on startup"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager"""
+    # Startup
     load_model()
+    yield
+    # Shutdown
+    logger.info("Shutting down LFM2.5 server")
+
+
+app = FastAPI(
+    title="LFM2.5 Transformers Server",
+    description="Japanese-specialized LLM API using LiquidAI/LFM2.5-1.2B-JP",
+    version="1.0.0",
+    lifespan=lifespan
+)
 
 
 # Request/Response models
