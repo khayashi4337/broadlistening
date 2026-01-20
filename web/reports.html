@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>週次レポート - Broadlistening</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      line-height: 1.6;
+    }
+    header {
+      background: #16213e;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 500;
+    }
+    nav {
+      display: flex;
+      gap: 1.5rem;
+    }
+    nav a {
+      color: #4ecca3;
+      text-decoration: none;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .week-selector {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+    .week-btn {
+      background: #16213e;
+      border: 1px solid #4ecca3;
+      color: #4ecca3;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .week-btn:hover, .week-btn.active {
+      background: #4ecca3;
+      color: #1a1a2e;
+    }
+    .summary-section {
+      background: #16213e;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .section-title {
+      font-size: 1.2rem;
+      color: #4ecca3;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .summary-text {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+    }
+    .topics-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .topic-tag {
+      background: #4ecca3;
+      color: #1a1a2e;
+      padding: 0.3rem 0.8rem;
+      border-radius: 15px;
+      font-size: 0.9rem;
+    }
+    .sentiment-badge {
+      display: inline-block;
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+    .sentiment-positive { background: #2ecc71; color: #fff; }
+    .sentiment-neutral { background: #f39c12; color: #fff; }
+    .sentiment-negative { background: #e74c3c; color: #fff; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat-card {
+      background: #1a1a2e;
+      padding: 1rem;
+      border-radius: 6px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #4ecca3;
+    }
+    .stat-label {
+      font-size: 0.85rem;
+      color: #888;
+    }
+    .changes-section {
+      background: linear-gradient(135deg, #16213e 0%, #1f2b47 100%);
+      border-left: 4px solid #4ecca3;
+    }
+    .change-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .change-icon {
+      font-size: 1.2rem;
+    }
+    .change-positive { color: #2ecc71; }
+    .change-negative { color: #e74c3c; }
+    .change-neutral { color: #f39c12; }
+    .action-items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+    .action-item {
+      background: #1a1a2e;
+      padding: 1rem;
+      border-radius: 6px;
+      border-left: 4px solid;
+    }
+    .action-item.high { border-left-color: #e74c3c; }
+    .action-item.medium { border-left-color: #f39c12; }
+    .action-item.low { border-left-color: #3498db; }
+    .action-title {
+      font-weight: 500;
+      margin-bottom: 0.3rem;
+    }
+    .action-description {
+      font-size: 0.9rem;
+      color: #aaa;
+      margin-bottom: 0.5rem;
+    }
+    .priority-badge {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 3px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+    .priority-high { background: #e74c3c; }
+    .priority-medium { background: #f39c12; }
+    .priority-low { background: #3498db; }
+    .theme-reports-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 1rem;
+    }
+    .theme-card {
+      background: #1a1a2e;
+      border-radius: 8px;
+      padding: 1.2rem;
+    }
+    .theme-name {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: #4ecca3;
+      margin-bottom: 0.8rem;
+    }
+    .theme-analysis {
+      font-size: 0.9rem;
+      color: #ccc;
+      margin-bottom: 0.8rem;
+    }
+    .theme-list {
+      list-style: none;
+      padding: 0;
+    }
+    .theme-list li {
+      font-size: 0.85rem;
+      padding: 0.2rem 0;
+      color: #aaa;
+    }
+    .theme-list li::before {
+      content: "• ";
+      color: #4ecca3;
+    }
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: #888;
+    }
+    .error {
+      background: #e74c3c20;
+      border: 1px solid #e74c3c;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+    .no-data {
+      text-align: center;
+      padding: 3rem;
+      color: #888;
+    }
+    @media (max-width: 768px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .theme-reports-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📋 週次レポート</h1>
+    <nav>
+      <a href="index.html">意見マップ</a>
+      <a href="clusters.html">クラスタ要約</a>
+      <a href="voting.html">投票分析</a>
+      <a href="reports.html">週次レポート</a>
+    </nav>
+  </header>
+
+  <div class="container">
+    <div id="loading" class="loading">データを読み込み中...</div>
+    <div id="error" class="error" style="display: none;"></div>
+
+    <div id="content" style="display: none;">
+      <div class="week-selector" id="week-selector"></div>
+
+      <!-- 週次サマリー -->
+      <div class="summary-section" id="summary-section">
+        <h2 class="section-title">📊 週次サマリー</h2>
+        <p class="summary-text" id="summary-text"></p>
+        <div class="topics-list" id="topics-list"></div>
+        <div>
+          <span>センチメント: </span>
+          <span class="sentiment-badge" id="sentiment-badge"></span>
+        </div>
+        <p style="margin-top: 1rem; color: #aaa;" id="notable-trends"></p>
+      </div>
+
+      <!-- 統計 -->
+      <div class="stats-grid" id="stats-grid"></div>
+
+      <!-- 前週との変化 -->
+      <div class="summary-section changes-section" id="changes-section">
+        <h2 class="section-title">📈 前週との変化</h2>
+        <div id="changes-content"></div>
+      </div>
+
+      <!-- アクションアイテム -->
+      <div class="summary-section">
+        <h2 class="section-title">🎯 アクションアイテム</h2>
+        <div class="action-items-list" id="action-items"></div>
+      </div>
+
+      <!-- テーマ別レポート -->
+      <div class="summary-section">
+        <h2 class="section-title">📑 テーマ別レポート</h2>
+        <div class="theme-reports-grid" id="theme-reports"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // XSS対策: HTMLエスケープ関数
+    const escapeHTML = (str) => {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+
+    let allReports = [];
+    let currentReportIndex = 0;
+
+    // データ読み込み
+    async function loadData() {
+      try {
+        const response = await fetch('data/reports.json');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+      } catch (error) {
+        throw new Error(`データの読み込みに失敗しました: ${error.message}`);
+      }
+    }
+
+    // 週選択ボタンを生成
+    function renderWeekSelector(reports) {
+      const container = document.getElementById('week-selector');
+      container.innerHTML = '';
+
+      if (!reports || reports.length === 0) {
+        return;
+      }
+
+      reports.forEach((report, index) => {
+        const btn = document.createElement('button');
+        btn.className = `week-btn ${index === currentReportIndex ? 'active' : ''}`;
+        const weekStart = new Date(report.week_start);
+        btn.textContent = `${weekStart.getMonth() + 1}/${weekStart.getDate()}週`;
+        btn.addEventListener('click', () => {
+          currentReportIndex = index;
+          renderReport(reports[index]);
+          updateWeekButtons();
+        });
+        container.appendChild(btn);
+      });
+    }
+
+    // 週選択ボタンの状態を更新
+    function updateWeekButtons() {
+      const buttons = document.querySelectorAll('.week-btn');
+      buttons.forEach((btn, index) => {
+        btn.classList.toggle('active', index === currentReportIndex);
+      });
+    }
+
+    // レポートを表示
+    function renderReport(report) {
+      if (!report) {
+        document.getElementById('content').innerHTML = '<div class="no-data">レポートがありません。weekly_summary.pyを実行してください。</div>';
+        return;
+      }
+
+      const summary = report.summary || {};
+      const changes = report.changes || {};
+      const statistics = report.statistics || {};
+      const actionItems = report.action_items || [];
+      const themeReports = report.theme_reports || [];
+
+      // サマリー
+      document.getElementById('summary-text').textContent = summary.summary || 'サマリーがありません';
+
+      // トピック
+      const topicsContainer = document.getElementById('topics-list');
+      topicsContainer.innerHTML = '';
+      (summary.key_topics || []).forEach(topic => {
+        const tag = document.createElement('span');
+        tag.className = 'topic-tag';
+        tag.textContent = escapeHTML(topic);
+        topicsContainer.appendChild(tag);
+      });
+
+      // センチメント
+      const sentimentBadge = document.getElementById('sentiment-badge');
+      const sentiment = summary.sentiment || 'neutral';
+      const sentimentLabels = { positive: 'ポジティブ', neutral: '中立', negative: 'ネガティブ' };
+      sentimentBadge.textContent = sentimentLabels[sentiment] || '中立';
+      sentimentBadge.className = `sentiment-badge sentiment-${sentiment}`;
+
+      // 注目すべき傾向
+      document.getElementById('notable-trends').textContent = summary.notable_trends || '';
+
+      // 統計
+      const statsGrid = document.getElementById('stats-grid');
+      statsGrid.innerHTML = `
+        <div class="stat-card">
+          <div class="stat-value">${statistics.total_issues || 0}</div>
+          <div class="stat-label">総意見数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${statistics.by_type?.['問題提起'] || 0}</div>
+          <div class="stat-label">問題提起</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${statistics.by_type?.['提案'] || 0}</div>
+          <div class="stat-label">提案</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${statistics.by_type?.['質問'] || 0}</div>
+          <div class="stat-label">質問</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${statistics.clusters_count || 0}</div>
+          <div class="stat-label">クラスタ数</div>
+        </div>
+      `;
+
+      // 変化
+      const changesContent = document.getElementById('changes-content');
+      const countChange = changes.issue_count_change || 0;
+      const countIcon = countChange > 0 ? '↑' : countChange < 0 ? '↓' : '→';
+      const countClass = countChange > 0 ? 'change-positive' : countChange < 0 ? 'change-negative' : 'change-neutral';
+
+      changesContent.innerHTML = `
+        <div class="change-item">
+          <span class="change-icon ${countClass}">${countIcon}</span>
+          <span>意見数: ${countChange > 0 ? '+' : ''}${countChange}件</span>
+        </div>
+        <div class="change-item">
+          <span class="change-icon">📊</span>
+          <span>センチメント: ${escapeHTML(changes.sentiment_change || 'N/A')}</span>
+        </div>
+        ${changes.new_topics?.length > 0 ? `
+          <div class="change-item">
+            <span class="change-icon change-positive">🆕</span>
+            <span>新トピック: ${escapeHTML(changes.new_topics.join(', '))}</span>
+          </div>
+        ` : ''}
+        ${changes.resolved_topics?.length > 0 ? `
+          <div class="change-item">
+            <span class="change-icon change-neutral">✓</span>
+            <span>収束トピック: ${escapeHTML(changes.resolved_topics.join(', '))}</span>
+          </div>
+        ` : ''}
+        <p style="margin-top: 0.8rem; color: #ccc;">${escapeHTML(changes.trend_description || '')}</p>
+      `;
+
+      // アクションアイテム
+      const actionItemsContainer = document.getElementById('action-items');
+      if (actionItems.length === 0) {
+        actionItemsContainer.innerHTML = '<p style="color: #888;">アクションアイテムがありません</p>';
+      } else {
+        const validPriorities = ['high', 'medium', 'low'];
+        actionItemsContainer.innerHTML = actionItems.map(item => {
+          const priority = validPriorities.includes(item.priority) ? item.priority : 'medium';
+          return `
+            <div class="action-item ${priority}">
+              <div class="action-title">${escapeHTML(item.title)}</div>
+              <div class="action-description">${escapeHTML(item.description || '')}</div>
+              <span class="priority-badge priority-${priority}">${priority}</span>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // テーマ別レポート
+      const themeReportsContainer = document.getElementById('theme-reports');
+      if (themeReports.length === 0) {
+        themeReportsContainer.innerHTML = '<p style="color: #888;">テーマ別レポートがありません</p>';
+      } else {
+        themeReportsContainer.innerHTML = themeReports.map(report => `
+          <div class="theme-card">
+            <div class="theme-name">${escapeHTML(report.theme)} (${report.issue_count || 0}件)</div>
+            <div class="theme-analysis">${escapeHTML(report.analysis || '')}</div>
+            ${report.key_concerns?.length > 0 ? `
+              <div style="margin-bottom: 0.5rem;">
+                <strong style="color: #e74c3c; font-size: 0.85rem;">懸念点:</strong>
+                <ul class="theme-list">
+                  ${report.key_concerns.map(c => `<li>${escapeHTML(c)}</li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
+            ${report.proposals?.length > 0 ? `
+              <div style="margin-bottom: 0.5rem;">
+                <strong style="color: #2ecc71; font-size: 0.85rem;">提案:</strong>
+                <ul class="theme-list">
+                  ${report.proposals.map(p => `<li>${escapeHTML(p)}</li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
+            ${report.recommendation ? `
+              <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #333;">
+                <strong style="color: #4ecca3; font-size: 0.85rem;">推奨アクション:</strong>
+                <p style="font-size: 0.85rem; color: #aaa; margin-top: 0.3rem;">${escapeHTML(report.recommendation)}</p>
+              </div>
+            ` : ''}
+          </div>
+        `).join('');
+      }
+    }
+
+    // 初期化
+    async function init() {
+      const loading = document.getElementById('loading');
+      const error = document.getElementById('error');
+      const content = document.getElementById('content');
+
+      try {
+        const data = await loadData();
+        allReports = data.reports || [];
+
+        loading.style.display = 'none';
+
+        if (allReports.length === 0) {
+          content.style.display = 'block';
+          content.innerHTML = '<div class="no-data">レポートがありません。<br>weekly_summary.pyを実行してレポートを生成してください。</div>';
+          return;
+        }
+
+        content.style.display = 'block';
+        renderWeekSelector(allReports);
+        renderReport(allReports[0]);
+
+      } catch (err) {
+        loading.style.display = 'none';
+        error.style.display = 'block';
+        error.textContent = err.message;
+      }
+    }
+
+    // ページ読み込み時に初期化
+    init();
+  </script>
+</body>
+</html>
