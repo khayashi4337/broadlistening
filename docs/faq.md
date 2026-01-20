@@ -223,6 +223,18 @@ Connection timeout
 ```
 → ネットワーク確認後、再起動（初回は5-10分かかる）
 
+**4. Docker Desktop が応答しない（Windows）**
+```
+Cannot connect to the Docker daemon
+```
+→ Docker Desktop を完全終了し、管理者権限で再起動
+
+**5. WSL2 関連エラー（Windows）**
+```
+WSL 2 requires an update to its kernel component
+```
+→ Microsoft Store から「Windows Subsystem for Linux」を更新
+
 ### Q: LLMの応答が遅いです
 
 **A:** 以下を確認してください。
@@ -255,6 +267,44 @@ python scripts/benchmark.py --quick
 - CSVインポート: BOM付きUTF-8で保存
 - データベース: UTF-8設定を確認
 - ターミナル: `chcp 65001`（Windows）
+
+### Q: Webhookが動作しません
+
+**A:** 以下を順番に確認してください。
+
+1. **Forgejo側の設定確認**
+   - リポジトリ → 設定 → Webhooks
+   - URL: `http://n8n:5678/webhook/forgejo-issue`
+   - イベント: `Issues` が選択されているか
+
+2. **n8n側の確認**
+   - ワークフローが「Active」になっているか
+   - Webhook URLが正しいか
+
+3. **ネットワーク確認**
+   ```bash
+   # コンテナ間通信テスト
+   docker exec broadlistening-forgejo curl -s http://n8n:5678/webhook/forgejo-issue
+   ```
+
+4. **ログ確認**
+   ```bash
+   docker compose logs -f n8n
+   ```
+
+### Q: 公開ダッシュボードの使い方は？
+
+**A:** 認証不要で外部公開できる読み取り専用画面です。
+
+**URL:** http://localhost:8000/public/
+
+**特徴:**
+- 意見マップの閲覧のみ（投稿不可）
+- 認証不要
+- iframe埋め込み対応
+
+**カスタマイズ:**
+`web/public/dashboard.html` を編集して、表示内容を調整できます。
 
 ---
 
@@ -447,6 +497,33 @@ curl -X POST http://localhost:5000/api/v1/issues \
 
 変更後、ブラウザをリロードで反映されます。
 
+### Q: 外部サイトにiframeで埋め込めますか？
+
+**A:** はい、公開ダッシュボードをiframeで埋め込めます。
+
+```html
+<iframe src="http://your-server:8000/public/" width="100%" height="600"></iframe>
+```
+
+**CORS設定が必要な場合:**
+
+`docker-compose.yml` の web サービスに環境変数を追加:
+
+```yaml
+services:
+  web:
+    environment:
+      - CORS_ORIGINS=https://your-external-site.com
+```
+
+または nginx 設定で `X-Frame-Options` を調整:
+
+```nginx
+location /public/ {
+    add_header X-Frame-Options "ALLOW-FROM https://your-external-site.com";
+}
+```
+
 ---
 
 ## その他
@@ -477,6 +554,33 @@ curl -X POST http://localhost:5000/api/v1/issues \
 - ドキュメント改善
 - 翻訳
 - 機能追加（事前にIssueで相談推奨）
+
+### Q: 多言語対応していますか？
+
+**A:** 日本語を主にサポートしていますが、多言語対応も可能です。
+
+**対応状況:**
+- LLM分類: 日本語最適化（他言語は精度低下の可能性）
+- Embedding: bge-m3は100言語以上対応
+- UI: 日本語のみ（翻訳対応可能）
+
+**多言語化の方法:**
+1. `prompts/` 内のプロンプトを翻訳
+2. `web/` 内のUIテキストを翻訳
+3. 必要に応じてLLMモデルを変更
+
+### Q: データの保持期間は？
+
+**A:** デフォルトでは無期限保持です。
+
+**期間設定:**
+```bash
+# 1年以上古いデータを削除
+docker exec broadlistening-n8n python3 /scripts/qdrant_manager.py \
+  cleanup --older-than 365
+```
+
+自動削除を設定する場合はcronで定期実行してください。
 
 ---
 

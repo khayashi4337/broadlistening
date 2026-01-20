@@ -114,6 +114,33 @@ similarity = (A · B) / (|A| × |B|)
 
 本システムでは0.7以上を「類似」と判定します。
 
+### UMAP（Uniform Manifold Approximation and Projection）
+
+高次元データを2次元や3次元に次元削減する手法。本システムでは1024次元のEmbeddingを2次元座標に変換し、vis.jsで可視化するために使用。
+
+**特徴:**
+- 局所構造と大域構造を保持
+- t-SNEより高速
+- クラスタ間の距離関係を維持
+
+### Webhook（ウェブフック）
+
+イベント発生時に外部URLへHTTPリクエストを自動送信する仕組み。本システムではForgejo Issueの作成時にn8nへ通知を送信。
+
+**フロー:**
+```
+Issue作成 → Forgejo Webhook発火 → n8n受信 → パイプライン実行
+```
+
+### REST API
+
+HTTPメソッド（GET, POST, PUT, DELETE）でリソースを操作するAPI設計スタイル。本システムでは意見データの取得・登録・検索などに使用。
+
+**エンドポイント例:**
+- `GET /api/v1/issues`: 意見一覧取得
+- `POST /api/v1/issues`: 意見登録
+- `GET /api/v1/search?q=`: 意見検索
+
 ---
 
 ## 分析用語
@@ -171,6 +198,25 @@ similarity = (A · B) / (|A| × |B|)
 - 上昇トレンド: 新たな関心事
 - 下降トレンド: 解決済み or 関心低下
 - 安定: 継続的な課題
+
+### バッチ処理（Batch Processing）
+
+定期的にまとめて実行する処理。本システムでは週次クラスタリングやレポート生成をバッチ処理で実行。
+
+**スケジュール例:**
+- 毎週日曜深夜: クラスタリング再計算
+- 毎週月曜朝: 週次レポート生成
+- 毎日: データバックアップ
+
+### モデレーション（Moderation）
+
+投稿内容の品質管理。不適切な投稿や重複投稿をフィルタリングする機能。
+
+**チェック項目:**
+- 禁止語句の検出
+- スパム判定
+- 重複検出
+- 品質スコア計算
 
 ---
 
@@ -237,7 +283,8 @@ BAAI（Beijing Academy of Artificial Intelligence）が開発した多言語Embe
 
 ## 関連リンク
 
+- [クイックスタート](quickstart.md)
+- [ユーザーズマニュアル](user-manual.md)
 - [API リファレンス](api-reference.md)
 - [設定ガイド](configuration.md)
 - [FAQ](faq.md)
-- [クイックスタート](quickstart.md)

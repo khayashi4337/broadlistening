@@ -7,7 +7,7 @@ Broadlistening を最速で立ち上げるためのステップバイステッ�
 1. [事前準備（5分）](#事前準備5分)
 2. [環境チェック（2分）](#環境チェック2分)
 3. [インストール（10分）](#インストール10分)
-4. [初期設定（5分）](#初期設定5分)
+4. [初期設定（10分）](#初期設定10分)
 5. [動作確認（5分）](#動作確認5分)
 6. [最初の意見を登録（3分）](#最初の意見を登録3分)
 7. [次のステップ](#次のステップ)
@@ -75,9 +75,12 @@ sudo usermod -aG docker $USER
 ### 1. リポジトリをクローン
 
 ```bash
+# your-org は実際のリポジトリURLに置き換えてください
 git clone https://github.com/your-org/broadlistening.git
 cd broadlistening
 ```
+
+> **Note:** 上記URLはプレースホルダーです。実際のリポジトリURLに置き換えてください。
 
 ### 2. 環境診断ツールを実行
 
@@ -165,7 +168,7 @@ broadlistening-web      Up (healthy)
 
 ---
 
-## 初期設定（5分）
+## 初期設定（10分）
 
 ### 1. Qdrant コレクションを初期化
 
@@ -198,6 +201,23 @@ Collection 'broadlistening' created successfully.
 2. 左メニュー「Workflows」
 3. `issue_pipeline` を開く
 4. 右上の「Active」トグルをONに
+
+### 4. Forgejo Webhook を設定
+
+1. http://localhost:3000 でリポジトリを作成
+2. リポジトリの「設定」→「Webhooks」→「Webhookを追加」
+3. 設定内容:
+   - **ターゲットURL**: `http://n8n:5678/webhook/forgejo-issue`
+   - **HTTPメソッド**: POST
+   - **トリガー**: 「Issues」にチェック
+4. 「Webhookを追加」をクリック
+
+**設定確認:**
+```bash
+# Webhook疎通テスト
+docker exec broadlistening-forgejo curl -s http://n8n:5678/webhook/forgejo-issue
+# → "Waiting for webhook call" と表示されればOK
+```
 
 ---
 
