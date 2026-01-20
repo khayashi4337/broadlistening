@@ -7,7 +7,8 @@ Broadlistening で使用される用語と概念の解説です。
 1. [基本概念](#基本概念)
 2. [技術用語](#技術用語)
 3. [分析用語](#分析用語)
-4. [システムコンポーネント](#システムコンポーネント)
+4. [ファインチューニング用語](#ファインチューニング用語)
+5. [システムコンポーネント](#システムコンポーネント)
 
 ---
 
@@ -220,6 +221,114 @@ HTTPメソッド（GET, POST, PUT, DELETE）でリソースを操作するAPI設
 
 ---
 
+## ファインチューニング用語
+
+LLMのカスタマイズ・追加学習に関する用語です。詳細は[ファインチューニングガイド](fine-tuning-guide.md)を参照してください。
+
+### ファインチューニング（Fine-tuning）
+
+事前学習済みのLLMを、特定のタスクやドメインに適応させるための追加学習。Broadlisteningでは分類精度の向上に使用できます。
+
+**手法:**
+| 手法 | 特徴 |
+|------|------|
+| フル学習 | 全パラメータを更新（高コスト） |
+| LoRA | アダプターのみ更新（効率的） |
+| QLoRA | LoRA + 4bit量子化（省メモリ） |
+
+### LoRA（Low-Rank Adaptation）
+
+モデル全体ではなく、小さなアダプター重み（全体の1-2%）のみを学習する効率的な手法。
+
+**メリット:**
+- メモリ効率が高い
+- 学習が速い
+- ベースモデルの知識を保持
+- 複数タスク用アダプターを切り替え可能
+
+**パラメータ:**
+- `r`（ランク）: アダプターの表現力（8〜32推奨）
+- `lora_alpha`: スケーリング係数（通常rの2倍）
+- `lora_dropout`: 過学習防止（0.05〜0.1）
+
+### QLoRA（Quantized LoRA）
+
+LoRAと4bit量子化を組み合わせた手法。メモリ使用量を約4倍削減しながら、LoRAとほぼ同等の性能を実現。
+
+**特徴:**
+- Google Colab無料枠（T4 GPU）で実行可能
+- VRAM 6GB程度から利用可能
+
+### SFT（Supervised Fine-Tuning）
+
+ラベル付きデータを使った教師あり学習。指示追従や分類タスクに適しています。
+
+**データ形式例:**
+```json
+{
+  "instruction": "意見を分類してください",
+  "input": "駐車場が狭い",
+  "output": "問題提起"
+}
+```
+
+**学習率:** `1e-5` 〜 `5e-5`
+
+### DPO（Direct Preference Optimization）
+
+人間の好みに基づいてモデルを調整する手法。報酬モデルを別途構築する必要がなく、実装が容易。
+
+**データ形式例:**
+```json
+{
+  "prompt": "意見を分類: 公園を増やしてほしい",
+  "chosen": "提案",
+  "rejected": "問題提起"
+}
+```
+
+**学習率:** `1e-7` 〜 `1e-6`（SFTより低い）
+
+### TRL（Transformers Reinforcement Learning）
+
+HuggingFace公式のファインチューニングライブラリ。SFT、DPO、PPO等を統一APIで提供。
+
+**対応Trainer:**
+- `SFTTrainer`: 教師あり学習
+- `DPOTrainer`: 好み最適化
+- `PPOTrainer`: 強化学習
+- `ORPOTrainer`: 代替好み最適化
+- `KTOTrainer`: Kahneman-Tversky最適化
+
+### Unsloth
+
+ファインチューニングを高速化するライブラリ。2-5倍の速度向上、メモリ70%削減を実現。
+
+**特徴:**
+- 最適化カーネルによる高速化
+- 4bit量子化サポート
+- Google Colab対応
+
+### Axolotl
+
+YAML設定ベースのファインチューニングツールキット。コードを書かずに設定ファイルのみで学習が可能。
+
+**特徴:**
+- 再現性が高い
+- マルチGPU対応（DeepSpeed）
+- チーム開発向き
+
+**実行例:**
+```bash
+axolotl train configs/lfm2-lora.yml
+```
+
+### PEFT（Parameter-Efficient Fine-Tuning）
+
+少数のパラメータのみを更新する効率的なファインチューニング手法の総称。LoRA、QLoRA、Prefix Tuningなどが含まれます。
+
+---
+
 ## システムコンポーネント
 
 ### Forgejo（フォージョ）
@@ -287,4 +396,5 @@ BAAI（Beijing Academy of Artificial Intelligence）が開発した多言語Embe
 - [ユーザーズマニュアル](user-manual.md)
 - [API リファレンス](api-reference.md)
 - [設定ガイド](configuration.md)
+- [ファインチューニングガイド](fine-tuning-guide.md)
 - [FAQ](faq.md)

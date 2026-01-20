@@ -259,6 +259,7 @@ broadlistening/
     ├── configuration.md       # 設定ガイド
     ├── deployment-guide.md    # デプロイガイド
     ├── hardware-guide.md      # ハードウェアガイド
+    ├── fine-tuning-guide.md   # ファインチューニングガイド
     ├── faq.md                 # よくある質問
     └── glossary.md            # 用語集
 ```
@@ -411,6 +412,7 @@ pytest tests/
 | [ハードウェアガイド](docs/hardware-guide.md) | 推奨スペックとパフォーマンス最適化 |
 | [FAQ](docs/faq.md) | よくある質問と回答 |
 | [用語集](docs/glossary.md) | システムで使用される用語の解説 |
+| [ファインチューニングガイド](docs/fine-tuning-guide.md) | LFM2.5のカスタマイズ方法（LoRA、QLoRA、SFT、DPO） |
 
 ## コントリビューション
 
