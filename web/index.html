@@ -28,6 +28,22 @@
       font-size: 1.5rem;
       font-weight: 500;
     }
+    nav {
+      display: flex;
+      gap: 1.5rem;
+    }
+    nav a {
+      color: #4ecca3;
+      text-decoration: none;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+    }
     .stats {
       display: flex;
       gap: 2rem;
@@ -114,18 +130,24 @@
 <body>
   <header>
     <h1>🗣️ Broadlistening - 意見マップ</h1>
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-value" id="total-count">0</div>
-        <div>総意見数</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value" id="cluster-count">0</div>
-        <div>クラスタ数</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value" id="today-count">0</div>
-        <div>本日の投稿</div>
+    <div class="header-right">
+      <nav>
+        <a href="index.html">意見マップ</a>
+        <a href="clusters.html">クラスタ要約</a>
+      </nav>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-value" id="total-count">0</div>
+          <div>総意見数</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="cluster-count">0</div>
+          <div>クラスタ数</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="today-count">0</div>
+          <div>本日の投稿</div>
+        </div>
       </div>
     </div>
   </header>

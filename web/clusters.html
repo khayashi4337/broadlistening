@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>クラスタ要約 - Broadlistening</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      line-height: 1.6;
+    }
+    header {
+      background: #16213e;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 500;
+    }
+    nav a {
+      color: #4ecca3;
+      text-decoration: none;
+      margin-left: 1.5rem;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .summary-stats {
+      display: flex;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: #16213e;
+      padding: 1.5rem;
+      border-radius: 8px;
+      text-align: center;
+      flex: 1;
+    }
+    .stat-value {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #4ecca3;
+    }
+    .stat-label {
+      color: #888;
+      font-size: 0.9rem;
+    }
+    .cluster-card {
+      background: #16213e;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+    .cluster-header {
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .cluster-header:hover {
+      background: #1f2b47;
+    }
+    .cluster-title {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .cluster-label {
+      font-size: 1.2rem;
+      font-weight: 500;
+    }
+    .cluster-count {
+      background: #4ecca3;
+      color: #1a1a2e;
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+    .cluster-toggle {
+      color: #4ecca3;
+      font-size: 1.2rem;
+    }
+    .cluster-content {
+      padding: 0 1.5rem 1.5rem;
+      display: none;
+    }
+    .cluster-content.active {
+      display: block;
+    }
+    .section-title {
+      color: #4ecca3;
+      font-size: 0.9rem;
+      margin: 1rem 0 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .representative-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .representative-item {
+      background: #1a1a2e;
+      padding: 0.8rem 1rem;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .representative-title {
+      flex: 1;
+    }
+    .representative-link {
+      color: #4ecca3;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    .representative-link:hover {
+      text-decoration: underline;
+    }
+    .issue-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 0.5rem;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .issue-item {
+      background: #1a1a2e;
+      padding: 0.6rem 0.8rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .issue-title {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tag {
+      display: inline-block;
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      white-space: nowrap;
+    }
+    .tag-problem { background: #e74c3c; }
+    .tag-proposal { background: #3498db; }
+    .tag-question { background: #f39c12; }
+    .tag-other { background: #888; }
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: #888;
+    }
+    .error {
+      background: #e74c3c20;
+      border: 1px solid #e74c3c;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+    @media (max-width: 768px) {
+      .summary-stats {
+        flex-direction: column;
+      }
+      .issue-list {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📊 クラスタ要約</h1>
+    <nav>
+      <a href="index.html">意見マップ</a>
+      <a href="clusters.html">クラスタ要約</a>
+    </nav>
+  </header>
+
+  <div class="container">
+    <div id="loading" class="loading">データを読み込み中...</div>
+    <div id="error" class="error" style="display: none;"></div>
+
+    <div id="content" style="display: none;">
+      <div class="summary-stats">
+        <div class="stat-card">
+          <div class="stat-value" id="total-issues">0</div>
+          <div class="stat-label">総意見数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="num-clusters">0</div>
+          <div class="stat-label">クラスタ数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="avg-per-cluster">0</div>
+          <div class="stat-label">平均意見数/クラスタ</div>
+        </div>
+      </div>
+
+      <div id="clusters"></div>
+    </div>
+  </div>
+
+  <script>
+    // XSS対策: HTMLエスケープ関数
+    const escapeHTML = (str) => {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+
+    // 意見タイプのクラス名マッピング
+    const typeClass = {
+      '問題提起': 'tag-problem',
+      '提案': 'tag-proposal',
+      '質問': 'tag-question'
+    };
+
+    // データ読み込み
+    async function loadData() {
+      try {
+        const response = await fetch('data/clusters.json');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+      } catch (error) {
+        throw new Error(`データの読み込みに失敗しました: ${error.message}`);
+      }
+    }
+
+    // 統計更新
+    function updateStats(data) {
+      document.getElementById('total-issues').textContent = data.total_issues || 0;
+      document.getElementById('num-clusters').textContent = data.num_clusters || 0;
+
+      const avg = data.num_clusters > 0
+        ? Math.round(data.total_issues / data.num_clusters)
+        : 0;
+      document.getElementById('avg-per-cluster').textContent = avg;
+    }
+
+    // クラスタカードを生成
+    function renderClusters(clusters) {
+      const container = document.getElementById('clusters');
+      container.innerHTML = '';
+
+      if (!clusters || clusters.length === 0) {
+        container.innerHTML = '<p style="color: #888; text-align: center; padding: 2rem;">クラスタデータがありません</p>';
+        return;
+      }
+
+      clusters.forEach((cluster, index) => {
+        const card = document.createElement('div');
+        card.className = 'cluster-card';
+
+        // 代表意見HTML
+        const representativesHtml = (cluster.representatives || []).map(rep => `
+          <div class="representative-item">
+            <span class="representative-title">${escapeHTML(rep.title)}</span>
+            ${rep.url ? `<a href="${escapeHTML(rep.url)}" target="_blank" class="representative-link">詳細</a>` : ''}
+          </div>
+        `).join('');
+
+        // 全意見HTML
+        const issuesHtml = (cluster.issues || []).map(issue => {
+          const tagCls = typeClass[issue.opinion_type] || 'tag-other';
+          return `
+            <div class="issue-item">
+              <span class="issue-title" title="${escapeHTML(issue.title)}">${escapeHTML(issue.title)}</span>
+              <span class="tag ${tagCls}">${escapeHTML(issue.opinion_type || 'その他')}</span>
+            </div>
+          `;
+        }).join('');
+
+        card.innerHTML = `
+          <div class="cluster-header" onclick="toggleCluster(${index})">
+            <div class="cluster-title">
+              <span class="cluster-label">${escapeHTML(cluster.label)}</span>
+              <span class="cluster-count">${cluster.count}件</span>
+            </div>
+            <span class="cluster-toggle" id="toggle-${index}">▼</span>
+          </div>
+          <div class="cluster-content" id="content-${index}">
+            ${representativesHtml ? `
+              <div class="section-title">代表意見</div>
+              <div class="representative-list">${representativesHtml}</div>
+            ` : ''}
+            <div class="section-title">全意見 (${cluster.count}件)</div>
+            <div class="issue-list">${issuesHtml}</div>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+    }
+
+    // クラスタの展開/折りたたみ
+    function toggleCluster(index) {
+      const content = document.getElementById(`content-${index}`);
+      const toggle = document.getElementById(`toggle-${index}`);
+
+      if (content.classList.contains('active')) {
+        content.classList.remove('active');
+        toggle.textContent = '▼';
+      } else {
+        content.classList.add('active');
+        toggle.textContent = '▲';
+      }
+    }
+
+    // 初期化
+    async function init() {
+      const loading = document.getElementById('loading');
+      const error = document.getElementById('error');
+      const content = document.getElementById('content');
+
+      try {
+        const data = await loadData();
+
+        loading.style.display = 'none';
+        content.style.display = 'block';
+
+        updateStats(data);
+        renderClusters(data.clusters);
+
+        // 最初のクラスタを展開
+        if (data.clusters && data.clusters.length > 0) {
+          toggleCluster(0);
+        }
+
+      } catch (err) {
+        loading.style.display = 'none';
+        error.style.display = 'block';
+        error.textContent = err.message;
+      }
+    }
+
+    // ページ読み込み時に初期化
+    init();
+  </script>
+</body>
+</html>
