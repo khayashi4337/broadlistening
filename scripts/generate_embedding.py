@@ -11,40 +11,55 @@ n8nワークフローまたはバッチ処理から呼び出されます。
 
 import sys
 import json
+import os
 import time
 import requests
 from typing import List, Dict, Optional, Union
 import logging
 
-# 定数定義
-DEFAULT_TIMEOUT_SECONDS = 30
-BATCH_TIMEOUT_SECONDS = 60
-HEALTH_CHECK_TIMEOUT_SECONDS = 10
+# 定数定義（環境変数でオーバーライド可能）
+DEFAULT_EMBEDDING_API_URL = os.getenv("EMBEDDING_API_URL", "http://embedding:80")
+DEFAULT_TIMEOUT_SECONDS = int(os.getenv("EMBEDDING_TIMEOUT", "30"))
+BATCH_TIMEOUT_SECONDS = int(os.getenv("EMBEDDING_BATCH_TIMEOUT", "60"))
+HEALTH_CHECK_TIMEOUT_SECONDS = int(os.getenv("EMBEDDING_HEALTH_TIMEOUT", "10"))
 EMBEDDING_DIMENSION = 1024
-MAX_TEXT_LENGTH = 10000  # 最大テキスト長（セキュリティ）
-MAX_RETRY_COUNT = 3  # リトライ回数
-RETRY_BACKOFF_SECONDS = 2  # リトライ待機時間
+MAX_TEXT_LENGTH = int(os.getenv("MAX_TEXT_LENGTH", "10000"))  # 最大テキスト長（セキュリティ）
+MAX_RETRY_COUNT = int(os.getenv("MAX_RETRY_COUNT", "3"))  # リトライ回数
+RETRY_BACKOFF_SECONDS = int(os.getenv("RETRY_BACKOFF_SECONDS", "2"))  # リトライ待機時間
 
-# ロギング設定
+# ロギング設定（環境変数でレベル制御可能）
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, log_level, logging.INFO),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
 
 class EmbeddingGenerator:
-    """bge-m3を使ったEmbedding生成クラス"""
+    """
+    bge-m3を使ったEmbedding生成クラス
 
-    def __init__(self, api_url: str = "http://embedding:80"):
+    環境変数:
+        EMBEDDING_API_URL: Embedding APIのURL（デフォルト: http://embedding:80）
+        EMBEDDING_TIMEOUT: タイムアウト秒数（デフォルト: 30）
+        EMBEDDING_BATCH_TIMEOUT: バッチ処理タイムアウト（デフォルト: 60）
+        MAX_TEXT_LENGTH: 最大テキスト長（デフォルト: 10000）
+        MAX_RETRY_COUNT: 最大リトライ回数（デフォルト: 3）
+        RETRY_BACKOFF_SECONDS: リトライ待機時間（デフォルト: 2）
+        LOG_LEVEL: ログレベル（DEBUG/INFO/WARNING/ERROR）
+    """
+
+    def __init__(self, api_url: str = DEFAULT_EMBEDDING_API_URL):
         """
         初期化
 
         Args:
-            api_url: Embedding APIのURL（デフォルト: Docker内部URL）
+            api_url: Embedding APIのURL（環境変数EMBEDDING_API_URLでオーバーライド可能）
         """
         self.api_url = api_url
         self.embed_endpoint = f"{api_url}/embed"
+        logger.debug(f"EmbeddingGenerator初期化: api_url={api_url}")
 
     def generate(self, text: str, timeout: int = DEFAULT_TIMEOUT_SECONDS, retry: int = MAX_RETRY_COUNT) -> Optional[List[float]]:
         """
@@ -207,7 +222,16 @@ def _parse_input() -> str:
 
 
 def main():
-    """CLIエントリーポイント"""
+    """
+    CLIエントリーポイント
+
+    環境変数:
+        EMBEDDING_API_URL: Embedding APIのURL
+        EMBEDDING_TIMEOUT: タイムアウト秒数
+        MAX_TEXT_LENGTH: 最大テキスト長
+        MAX_RETRY_COUNT: リトライ回数
+        LOG_LEVEL: ログレベル（DEBUG/INFO/WARNING/ERROR）
+    """
 
     # 使用例の表示
     if len(sys.argv) < 2:
@@ -220,6 +244,13 @@ def main():
         print()
         print("  3. ヘルスチェック:")
         print("     python generate_embedding.py --health")
+        print()
+        print("環境変数:")
+        print(f"  EMBEDDING_API_URL: {DEFAULT_EMBEDDING_API_URL}")
+        print(f"  EMBEDDING_TIMEOUT: {DEFAULT_TIMEOUT_SECONDS}秒")
+        print(f"  MAX_TEXT_LENGTH: {MAX_TEXT_LENGTH}文字")
+        print(f"  MAX_RETRY_COUNT: {MAX_RETRY_COUNT}回")
+        print(f"  LOG_LEVEL: {log_level}")
         sys.exit(1)
 
     # Embedding生成器の初期化

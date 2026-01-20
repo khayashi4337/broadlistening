@@ -10,41 +10,61 @@ Qdrant管理スクリプト
 
 import sys
 import json
+import os
 import requests
 from typing import List, Dict, Optional, Any
 import logging
 from datetime import datetime
 
-# 定数定義
-DEFAULT_COLLECTION_NAME = "broadlistening_issues"
+# 定数定義（環境変数でオーバーライド可能）
+DEFAULT_QDRANT_HOST = os.getenv("QDRANT_HOST", "qdrant")
+DEFAULT_QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
+DEFAULT_COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "broadlistening_issues")
 DEFAULT_VECTOR_SIZE = 1024
 DEFAULT_DISTANCE_METRIC = "Cosine"
-DEFAULT_HEALTH_TIMEOUT = 5
-DEFAULT_API_TIMEOUT = 30  # API操作のタイムアウト
-MAX_SCROLL_LIMIT = 10000  # スクロール最大件数（セキュリティ）
+DEFAULT_HEALTH_TIMEOUT = int(os.getenv("QDRANT_HEALTH_TIMEOUT", "5"))
+DEFAULT_API_TIMEOUT = int(os.getenv("QDRANT_API_TIMEOUT", "30"))  # API操作のタイムアウト
+MAX_SCROLL_LIMIT = int(os.getenv("MAX_SCROLL_LIMIT", "10000"))  # スクロール最大件数（セキュリティ）
 
-# ロギング設定
+# ロギング設定（環境変数でレベル制御可能）
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, log_level, logging.INFO),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
 
 class QdrantManager:
-    """Qdrant操作クラス"""
+    """
+    Qdrant操作クラス
 
-    def __init__(self, host: str = "qdrant", port: int = 6333, collection_name: str = DEFAULT_COLLECTION_NAME):
+    環境変数:
+        QDRANT_HOST: Qdrantホスト名（デフォルト: qdrant）
+        QDRANT_PORT: Qdrantポート番号（デフォルト: 6333）
+        QDRANT_COLLECTION: コレクション名（デフォルト: broadlistening_issues）
+        QDRANT_API_TIMEOUT: API操作タイムアウト（デフォルト: 30秒）
+        MAX_SCROLL_LIMIT: 最大スクロール件数（デフォルト: 10000）
+        LOG_LEVEL: ログレベル（DEBUG/INFO/WARNING/ERROR）
+    """
+
+    def __init__(
+        self,
+        host: str = DEFAULT_QDRANT_HOST,
+        port: int = DEFAULT_QDRANT_PORT,
+        collection_name: str = DEFAULT_COLLECTION_NAME
+    ):
         """
         初期化
 
         Args:
-            host: Qdrantホスト名
-            port: Qdrantポート番号
-            collection_name: コレクション名
+            host: Qdrantホスト名（環境変数QDRANT_HOSTでオーバーライド可能）
+            port: Qdrantポート番号（環境変数QDRANT_PORTでオーバーライド可能）
+            collection_name: コレクション名（環境変数QDRANT_COLLECTIONでオーバーライド可能）
         """
         self.base_url = f"http://{host}:{port}"
         self.collection_name = collection_name
+        logger.debug(f"QdrantManager初期化: base_url={self.base_url}, collection={collection_name}")
 
     def create_collection(self, vector_size: int = DEFAULT_VECTOR_SIZE, force: bool = False) -> bool:
         """
@@ -312,12 +332,22 @@ def create_metadata(issue_data: Dict) -> Dict[str, Any]:
 
 
 def main():
-    """CLIエントリーポイント"""
+    """
+    CLIエントリーポイント
+
+    環境変数:
+        QDRANT_HOST: Qdrantホスト名
+        QDRANT_PORT: Qdrantポート番号
+        QDRANT_COLLECTION: コレクション名
+        QDRANT_API_TIMEOUT: APIタイムアウト秒数
+        MAX_SCROLL_LIMIT: 最大スクロール件数
+        LOG_LEVEL: ログレベル（DEBUG/INFO/WARNING/ERROR）
+    """
 
     if len(sys.argv) < 2:
         print("使用方法:")
         print("  1. コレクション作成:")
-        print("     python qdrant_manager.py init")
+        print("     python qdrant_manager.py init [--force]")
         print()
         print("  2. ポイント保存:")
         print("     echo '{\"issue_id\": 1, \"embedding\": [...], \"metadata\": {...}}' | python qdrant_manager.py upsert")
@@ -326,10 +356,18 @@ def main():
         print("     echo '{\"embedding\": [...], \"limit\": 5}' | python qdrant_manager.py search")
         print()
         print("  4. 全ポイント取得:")
-        print("     python qdrant_manager.py get-all")
+        print("     python qdrant_manager.py get-all [limit]")
         print()
         print("  5. ヘルスチェック:")
         print("     python qdrant_manager.py health")
+        print()
+        print("環境変数:")
+        print(f"  QDRANT_HOST: {DEFAULT_QDRANT_HOST}")
+        print(f"  QDRANT_PORT: {DEFAULT_QDRANT_PORT}")
+        print(f"  QDRANT_COLLECTION: {DEFAULT_COLLECTION_NAME}")
+        print(f"  QDRANT_API_TIMEOUT: {DEFAULT_API_TIMEOUT}秒")
+        print(f"  MAX_SCROLL_LIMIT: {MAX_SCROLL_LIMIT}件")
+        print(f"  LOG_LEVEL: {log_level}")
         sys.exit(1)
 
     command = sys.argv[1]

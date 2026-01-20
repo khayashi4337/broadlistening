@@ -19,33 +19,44 @@ import logging
 import numpy as np
 from qdrant_manager import QdrantManager
 
-# 定数定義
-DEFAULT_OUTPUT_PATH = "/usr/share/nginx/html/data/issues.json"
+# 定数定義（環境変数でオーバーライド可能）
+DEFAULT_OUTPUT_PATH = os.getenv("OUTPUT_JSON_PATH", "/usr/share/nginx/html/data/issues.json")
 FALLBACK_OUTPUT_PATH = "./web/data/issues.json"
-VIS_JS_SCALE_FACTOR = 500
-TOOLTIP_MAX_LENGTH = 200
+VIS_JS_SCALE_FACTOR = int(os.getenv("VIS_JS_SCALE_FACTOR", "500"))
+TOOLTIP_MAX_LENGTH = int(os.getenv("TOOLTIP_MAX_LENGTH", "200"))
 MIN_ISSUES_FOR_PCA = 2  # PCAに必要な最小Issue数
 
-# ロギング設定
+# ロギング設定（環境変数でレベル制御可能）
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, log_level, logging.INFO),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
 
 class IssueJSONExporter:
-    """Issue JSONエクスポートクラス"""
+    """
+    Issue JSONエクスポートクラス
 
-    def __init__(self, output_path: str = DEFAULT_OUTPUT_PATH):
+    環境変数:
+        OUTPUT_JSON_PATH: 出力先JSONパス（デフォルト: /usr/share/nginx/html/data/issues.json）
+        VIS_JS_SCALE_FACTOR: vis.jsスケール係数（デフォルト: 500）
+        TOOLTIP_MAX_LENGTH: ツールチップ最大文字数（デフォルト: 200）
+        LOG_LEVEL: ログレベル（DEBUG/INFO/WARNING/ERROR）
+    """
+
+    def __init__(self, output_path: str = DEFAULT_OUTPUT_PATH, qdrant_manager: QdrantManager = None):
         """
         初期化
 
         Args:
-            output_path: 出力先ファイルパス（Docker内のnginx配置先）
+            output_path: 出力先ファイルパス（環境変数OUTPUT_JSON_PATHでオーバーライド可能）
+            qdrant_manager: QdrantManagerインスタンス（テスト用依存性注入）
         """
         self.output_path = output_path
-        self.qdrant = QdrantManager()
+        self.qdrant = qdrant_manager or QdrantManager()
+        logger.debug(f"IssueJSONExporter初期化: output_path={output_path}")
 
     def reduce_dimensions(self, embeddings: np.ndarray) -> np.ndarray:
         """
@@ -170,7 +181,27 @@ class IssueJSONExporter:
 
 
 def main():
-    """CLIエントリーポイント"""
+    """
+    CLIエントリーポイント
+
+    環境変数:
+        OUTPUT_JSON_PATH: 出力先JSONパス
+        VIS_JS_SCALE_FACTOR: vis.jsスケール係数
+        TOOLTIP_MAX_LENGTH: ツールチップ最大文字数
+        LOG_LEVEL: ログレベル（DEBUG/INFO/WARNING/ERROR）
+    """
+
+    # 使用例の表示
+    if len(sys.argv) > 1 and sys.argv[1] in ["--help", "-h"]:
+        print("使用方法:")
+        print("  python export_issues_json.py [output_path]")
+        print()
+        print("環境変数:")
+        print(f"  OUTPUT_JSON_PATH: {DEFAULT_OUTPUT_PATH}")
+        print(f"  VIS_JS_SCALE_FACTOR: {VIS_JS_SCALE_FACTOR}")
+        print(f"  TOOLTIP_MAX_LENGTH: {TOOLTIP_MAX_LENGTH}")
+        print(f"  LOG_LEVEL: {log_level}")
+        sys.exit(0)
 
     # 引数で出力先を指定可能
     if len(sys.argv) > 1:
