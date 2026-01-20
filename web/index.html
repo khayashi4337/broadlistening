@@ -158,132 +158,290 @@
         .replace(/'/g, '&#039;');
     };
 
-    // サンプルデータ（実際はissues.jsonから読み込む）
+    // デフォルトのクラスタ色
+    const CLUSTER_COLORS = [
+      '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f39c12',
+      '#1abc9c', '#e67e22', '#34495e', '#16a085', '#c0392b'
+    ];
+
+    // 意見タイプのマッピング
+    const TYPE_MAPPING = {
+      '問題提起': 'problem',
+      '提案': 'proposal',
+      '質問': 'question',
+      'その他': 'other'
+    };
+
+    // サンプルデータ（データがない場合のフォールバック）
     const sampleData = {
       clusters: [
-        { id: "tax", label: "税制への不満", color: "#e74c3c" },
-        { id: "education", label: "教育政策", color: "#3498db" },
-        { id: "welfare", label: "福祉・医療", color: "#2ecc71" },
-        { id: "environment", label: "環境問題", color: "#9b59b6" }
+        { id: "example", label: "サンプル", color: "#4ecca3" }
       ],
       issues: [
-        { id: 1, title: "消費税が高すぎる", cluster: "tax", type: "problem", reactions: { up: 42, down: 5 } },
-        { id: 2, title: "累進消費税の導入を提案", cluster: "tax", type: "proposal", reactions: { up: 28, down: 12 } },
-        { id: 3, title: "給食費の無償化を", cluster: "education", type: "proposal", reactions: { up: 65, down: 3 } },
-        { id: 4, title: "教員の負担が大きい", cluster: "education", type: "problem", reactions: { up: 55, down: 2 } },
-        { id: 5, title: "介護保険の仕組みがわからない", cluster: "welfare", type: "question", reactions: { up: 18, down: 0 } },
-        { id: 6, title: "病院の待ち時間が長い", cluster: "welfare", type: "problem", reactions: { up: 38, down: 4 } },
-        { id: 7, title: "ゴミの分別ルールを簡素化して", cluster: "environment", type: "proposal", reactions: { up: 45, down: 8 } },
-        { id: 8, title: "公園にもっと緑を", cluster: "environment", type: "proposal", reactions: { up: 32, down: 1 } },
-        { id: 9, title: "固定資産税の減免制度は？", cluster: "tax", type: "question", reactions: { up: 12, down: 0 } },
-        { id: 10, title: "少人数学級の実現を", cluster: "education", type: "proposal", reactions: { up: 58, down: 5 } }
+        { id: 1, title: "データを読み込み中...", cluster: "example", type: "other", reactions: { up: 0, down: 0 } }
       ]
     };
 
-    // 統計更新
-    document.getElementById('total-count').textContent = sampleData.issues.length;
-    document.getElementById('cluster-count').textContent = sampleData.clusters.length;
-    document.getElementById('today-count').textContent = 3;
+    // グローバル変数
+    let currentData = null;
+    let network = null;
+    let nodes = [];
+    let edges = [];
 
-    // 凡例生成
-    const legendEl = document.getElementById('legend');
-    sampleData.clusters.forEach(cluster => {
-      legendEl.innerHTML += `
-        <div class="legend-item">
-          <div class="legend-color" style="background: ${escapeHTML(cluster.color)}"></div>
-          <span>${escapeHTML(cluster.label)}</span>
-        </div>
-      `;
-    });
-
-    // ノードとエッジ生成
-    const nodes = [];
-    const edges = [];
-
-    // クラスタノード
-    sampleData.clusters.forEach(cluster => {
-      nodes.push({
-        id: cluster.id,
-        label: cluster.label,
-        shape: 'box',
-        color: { background: cluster.color, border: cluster.color },
-        font: { color: '#fff', size: 14 },
-        margin: 10
-      });
-    });
-
-    // Issueノード
-    sampleData.issues.forEach(issue => {
-      const cluster = sampleData.clusters.find(c => c.id === issue.cluster);
-      nodes.push({
-        id: `issue-${issue.id}`,
-        label: issue.title.substring(0, 15) + (issue.title.length > 15 ? '...' : ''),
-        title: issue.title,
-        shape: 'dot',
-        size: 10 + issue.reactions.up / 5,
-        color: { background: cluster.color, border: '#fff' },
-        issueData: issue
-      });
-      edges.push({
-        from: `issue-${issue.id}`,
-        to: issue.cluster,
-        color: { color: cluster.color, opacity: 0.3 }
-      });
-    });
-
-    // グラフ描画
-    const container = document.getElementById('graph');
-    const data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
-    const options = {
-      physics: {
-        stabilization: { iterations: 100 },
-        barnesHut: { gravitationalConstant: -3000, springLength: 150 }
-      },
-      interaction: { hover: true, tooltipDelay: 100 }
-    };
-    const network = new vis.Network(container, data, options);
-
-    // クリックイベント
-    network.on('click', params => {
-      if (params.nodes.length > 0) {
-        const nodeId = params.nodes[0];
-        if (nodeId.startsWith('issue-')) {
-          const node = nodes.find(n => n.id === nodeId);
-          const issue = node.issueData;
-          const typeLabel = { problem: '問題提起', proposal: '提案', question: '質問' };
-          const typeClass = { problem: 'tag-problem', proposal: 'tag-proposal', question: 'tag-question' };
-          
-          document.getElementById('selected-issue').innerHTML = `
-            <div class="issue-card">
-              <div class="issue-title">${escapeHTML(issue.title)}</div>
-              <div style="margin: 0.5rem 0;">
-                <span class="tag tag-theme">${escapeHTML(sampleData.clusters.find(c => c.id === issue.cluster).label)}</span>
-                <span class="tag ${escapeHTML(typeClass[issue.type])}">${escapeHTML(typeLabel[issue.type])}</span>
-              </div>
-              <div class="issue-meta">
-                <span>👍 ${escapeHTML(issue.reactions.up)}</span>
-                <span>👎 ${escapeHTML(issue.reactions.down)}</span>
-              </div>
-            </div>
-          `;
+    // データ読み込み関数
+    async function loadData() {
+      try {
+        const response = await fetch('data/issues.json');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-      }
-    });
+        const data = await response.json();
 
-    // 最新の意見表示
-    const recentEl = document.getElementById('recent-issues');
-    sampleData.issues.slice(-5).reverse().forEach(issue => {
-      const cluster = sampleData.clusters.find(c => c.id === issue.cluster);
-      recentEl.innerHTML += `
+        // データが空の場合はサンプルデータを使用
+        if (!data.issues || data.issues.length === 0) {
+          console.log('データが空のため、サンプルデータを使用します');
+          return transformData(sampleData);
+        }
+
+        return transformData(data);
+      } catch (error) {
+        console.error('データの読み込みに失敗しました:', error);
+        return transformData(sampleData);
+      }
+    }
+
+    // データ変換関数（issues.jsonのフォーマットを内部形式に変換）
+    function transformData(data) {
+      // クラスタがある場合はそのまま使用、なければテーマから生成
+      let clusters = data.clusters || [];
+
+      if (clusters.length === 0 && data.issues && data.issues.length > 0) {
+        // issuesからテーマを収集してクラスタを生成
+        const themeSet = new Set();
+        data.issues.forEach(issue => {
+          if (issue.themes && Array.isArray(issue.themes)) {
+            issue.themes.forEach(theme => themeSet.add(theme));
+          }
+          if (issue.opinion_type) {
+            themeSet.add(issue.opinion_type);
+          }
+        });
+
+        clusters = Array.from(themeSet).map((theme, index) => ({
+          id: `cluster-${index}`,
+          label: theme,
+          color: CLUSTER_COLORS[index % CLUSTER_COLORS.length]
+        }));
+      }
+
+      // issuesを内部形式に変換
+      const issues = (data.issues || []).map(issue => {
+        // クラスタの決定（themes[0]を使用、なければopinion_type）
+        let clusterId = 'unknown';
+        if (issue.themes && issue.themes.length > 0) {
+          const cluster = clusters.find(c => c.label === issue.themes[0]);
+          clusterId = cluster ? cluster.id : 'unknown';
+        } else if (issue.opinion_type) {
+          const cluster = clusters.find(c => c.label === issue.opinion_type);
+          clusterId = cluster ? cluster.id : 'unknown';
+        }
+
+        return {
+          id: issue.id || issue.issue_id,
+          title: issue.title || issue.metadata?.title || '無題',
+          body: issue.body || issue.metadata?.body || '',
+          cluster: clusterId,
+          type: TYPE_MAPPING[issue.opinion_type] || 'other',
+          themes: issue.themes || [],
+          reactions: issue.reactions || { up: 0, down: 0 },
+          url: issue.url || issue.metadata?.url || '#',
+          created_at: issue.created_at || issue.metadata?.created_at || null
+        };
+      });
+
+      // unknownクラスタを追加（必要な場合）
+      if (issues.some(i => i.cluster === 'unknown') && !clusters.find(c => c.id === 'unknown')) {
+        clusters.push({ id: 'unknown', label: '未分類', color: '#888888' });
+      }
+
+      return { clusters, issues };
+    }
+
+    // 統計更新関数
+    function updateStats(data) {
+      document.getElementById('total-count').textContent = data.issues.length;
+      document.getElementById('cluster-count').textContent = data.clusters.length;
+
+      // 本日の投稿数を計算
+      const today = new Date().toISOString().split('T')[0];
+      const todayCount = data.issues.filter(issue => {
+        if (!issue.created_at) return false;
+        return issue.created_at.startsWith(today);
+      }).length;
+      document.getElementById('today-count').textContent = todayCount;
+    }
+
+    // 凡例生成関数
+    function renderLegend(clusters) {
+      const legendEl = document.getElementById('legend');
+      legendEl.innerHTML = '';
+      clusters.forEach(cluster => {
+        legendEl.innerHTML += `
+          <div class="legend-item">
+            <div class="legend-color" style="background: ${escapeHTML(cluster.color)}"></div>
+            <span>${escapeHTML(cluster.label)}</span>
+          </div>
+        `;
+      });
+    }
+
+    // グラフ描画関数
+    function renderGraph(data) {
+      nodes = [];
+      edges = [];
+
+      // クラスタノード
+      data.clusters.forEach(cluster => {
+        nodes.push({
+          id: cluster.id,
+          label: cluster.label,
+          shape: 'box',
+          color: { background: cluster.color, border: cluster.color },
+          font: { color: '#fff', size: 14 },
+          margin: 10
+        });
+      });
+
+      // Issueノード
+      data.issues.forEach(issue => {
+        const cluster = data.clusters.find(c => c.id === issue.cluster);
+        if (!cluster) return;
+
+        const reactionScore = (issue.reactions?.up || 0) - (issue.reactions?.down || 0);
+        nodes.push({
+          id: `issue-${issue.id}`,
+          label: issue.title.substring(0, 15) + (issue.title.length > 15 ? '...' : ''),
+          title: issue.title,
+          shape: 'dot',
+          size: Math.max(8, 10 + reactionScore / 5),
+          color: { background: cluster.color, border: '#fff' },
+          issueData: issue
+        });
+        edges.push({
+          from: `issue-${issue.id}`,
+          to: issue.cluster,
+          color: { color: cluster.color, opacity: 0.3 }
+        });
+      });
+
+      // グラフ描画
+      const container = document.getElementById('graph');
+      const graphData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+      const options = {
+        physics: {
+          stabilization: { iterations: 100 },
+          barnesHut: { gravitationalConstant: -3000, springLength: 150 }
+        },
+        interaction: { hover: true, tooltipDelay: 100 }
+      };
+
+      network = new vis.Network(container, graphData, options);
+
+      // クリックイベント
+      network.on('click', params => {
+        if (params.nodes.length > 0) {
+          const nodeId = params.nodes[0];
+          if (nodeId.startsWith('issue-')) {
+            const node = nodes.find(n => n.id === nodeId);
+            if (node && node.issueData) {
+              showIssueDetail(node.issueData, data.clusters);
+            }
+          }
+        }
+      });
+    }
+
+    // Issue詳細表示関数
+    function showIssueDetail(issue, clusters) {
+      const typeLabel = { problem: '問題提起', proposal: '提案', question: '質問', other: 'その他' };
+      const typeClass = { problem: 'tag-problem', proposal: 'tag-proposal', question: 'tag-question', other: 'tag-theme' };
+      const cluster = clusters.find(c => c.id === issue.cluster);
+
+      document.getElementById('selected-issue').innerHTML = `
         <div class="issue-card">
           <div class="issue-title">${escapeHTML(issue.title)}</div>
+          <div style="margin: 0.5rem 0;">
+            ${cluster ? `<span class="tag tag-theme">${escapeHTML(cluster.label)}</span>` : ''}
+            <span class="tag ${escapeHTML(typeClass[issue.type] || 'tag-theme')}">${escapeHTML(typeLabel[issue.type] || 'その他')}</span>
+          </div>
+          ${issue.themes && issue.themes.length > 0 ? `
+            <div style="margin: 0.5rem 0;">
+              ${issue.themes.map(t => `<span class="tag tag-theme">${escapeHTML(t)}</span>`).join('')}
+            </div>
+          ` : ''}
           <div class="issue-meta">
-            <span class="tag tag-theme">${escapeHTML(cluster.label)}</span>
-            <span>👍 ${escapeHTML(issue.reactions.up)}</span>
+            <span>👍 ${escapeHTML(String(issue.reactions?.up || 0))}</span>
+            <span>👎 ${escapeHTML(String(issue.reactions?.down || 0))}</span>
+            ${issue.url && issue.url !== '#' ? `<a href="${escapeHTML(issue.url)}" target="_blank" style="color: #4ecca3;">詳細</a>` : ''}
           </div>
         </div>
       `;
-    });
+    }
+
+    // 最新の意見表示関数
+    function renderRecentIssues(data) {
+      const recentEl = document.getElementById('recent-issues');
+      recentEl.innerHTML = '';
+
+      // 最新5件を表示（created_atでソート）
+      const sortedIssues = [...data.issues].sort((a, b) => {
+        if (!a.created_at) return 1;
+        if (!b.created_at) return -1;
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
+
+      sortedIssues.slice(0, 5).forEach(issue => {
+        const cluster = data.clusters.find(c => c.id === issue.cluster);
+        const card = document.createElement('div');
+        card.className = 'issue-card';
+        card.dataset.issueId = issue.id;
+        card.innerHTML = `
+          <div class="issue-title">${escapeHTML(issue.title)}</div>
+          <div class="issue-meta">
+            ${cluster ? `<span class="tag tag-theme">${escapeHTML(cluster.label)}</span>` : ''}
+            <span>👍 ${escapeHTML(String(issue.reactions?.up || 0))}</span>
+          </div>
+        `;
+        card.addEventListener('click', () => {
+          showIssueDetail(issue, currentData.clusters);
+        });
+        recentEl.appendChild(card);
+      });
+    }
+
+    // 初期化
+    async function init() {
+      currentData = await loadData();
+      updateStats(currentData);
+      renderLegend(currentData.clusters);
+      renderGraph(currentData);
+      renderRecentIssues(currentData);
+    }
+
+    // ページ読み込み時に初期化
+    init();
+
+    // 定期的にデータを更新（30秒ごと）
+    setInterval(async () => {
+      const newData = await loadData();
+      if (JSON.stringify(newData) !== JSON.stringify(currentData)) {
+        currentData = newData;
+        updateStats(currentData);
+        renderLegend(currentData.clusters);
+        renderGraph(currentData);
+        renderRecentIssues(currentData);
+      }
+    }, 30000);
   </script>
 </body>
 </html>

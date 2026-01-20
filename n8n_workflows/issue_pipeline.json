@@ -78,13 +78,35 @@
     },
     {
       "parameters": {
+        "command": "echo '{{ JSON.stringify({ \"issue_id\": $json.issue_id, \"text\": $json.metadata.body }) }}' | python3 /scripts/classify_opinion.py --update"
+      },
+      "id": "classify-node",
+      "name": "Classify Opinion Type",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1450, 200],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "command": "echo '{{ JSON.stringify({ \"issue_id\": $json.issue_id, \"text\": $json.metadata.body, \"num_themes\": 3 }) }}' | python3 /scripts/extract_themes.py --update"
+      },
+      "id": "extract-themes-node",
+      "name": "Extract Themes",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1650, 200],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
         "command": "echo '{{ JSON.stringify({ \"embedding\": $json.embedding, \"limit\": 5 }) }}' | python3 /scripts/qdrant_manager.py search"
       },
       "id": "search-node",
       "name": "Search Similar Issues",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [1450, 200],
+      "position": [1850, 200],
       "alwaysOutputData": true
     },
     {
@@ -95,7 +117,7 @@
       "name": "Export to JSON",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [1650, 200],
+      "position": [2050, 200],
       "alwaysOutputData": true
     },
     {
@@ -107,7 +129,7 @@
       "name": "Final Output",
       "type": "n8n-nodes-base.set",
       "typeVersion": 2,
-      "position": [1850, 200]
+      "position": [2250, 200]
     }
   ],
   "connections": {
@@ -164,6 +186,28 @@
       "main": [
         [
           {
+            "node": "Classify Opinion Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Opinion Type": {
+      "main": [
+        [
+          {
+            "node": "Extract Themes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Themes": {
+      "main": [
+        [
+          {
             "node": "Search Similar Issues",
             "type": "main",
             "index": 0
@@ -178,7 +222,13 @@
             "node": "Export to JSON",
             "type": "main",
             "index": 0
-          },
+          }
+        ]
+      ]
+    },
+    "Export to JSON": {
+      "main": [
+        [
           {
             "node": "Final Output",
             "type": "main",
