@@ -11,6 +11,7 @@ n8nワークフローまたはバッチ処理から呼び出されます。
 
 import sys
 import json
+import time
 import requests
 from typing import List, Dict, Optional, Union
 import logging
@@ -20,6 +21,9 @@ DEFAULT_TIMEOUT_SECONDS = 30
 BATCH_TIMEOUT_SECONDS = 60
 HEALTH_CHECK_TIMEOUT_SECONDS = 10
 EMBEDDING_DIMENSION = 1024
+MAX_TEXT_LENGTH = 10000  # 最大テキスト長（セキュリティ）
+MAX_RETRY_COUNT = 3  # リトライ回数
+RETRY_BACKOFF_SECONDS = 2  # リトライ待機時間
 
 # ロギング設定
 logging.basicConfig(
@@ -42,57 +46,83 @@ class EmbeddingGenerator:
         self.api_url = api_url
         self.embed_endpoint = f"{api_url}/embed"
 
-    def generate(self, text: str, timeout: int = DEFAULT_TIMEOUT_SECONDS) -> Optional[List[float]]:
+    def generate(self, text: str, timeout: int = DEFAULT_TIMEOUT_SECONDS, retry: int = MAX_RETRY_COUNT) -> Optional[List[float]]:
         """
-        テキストからEmbeddingを生成
+        テキストからEmbeddingを生成（リトライ機能付き）
 
         Args:
             text: 入力テキスト
             timeout: タイムアウト秒数
+            retry: リトライ回数
 
         Returns:
             ベクトル（1024次元のfloatリスト）
             失敗時はNone
         """
+        # 入力バリデーション
         if not text or not text.strip():
             logger.warning("空のテキストが入力されました")
             return None
 
-        try:
-            # bge-m3のAPI仕様に従ったリクエスト
-            payload = {"inputs": text.strip()}
+        if len(text) > MAX_TEXT_LENGTH:
+            logger.warning(f"テキストが長すぎます（{len(text)}文字 > {MAX_TEXT_LENGTH}文字）。切り詰めます。")
+            text = text[:MAX_TEXT_LENGTH]
 
-            logger.info(f"Embedding生成開始: テキスト長={len(text)}文字")
+        # リトライロジック
+        for attempt in range(retry):
+            try:
+                # bge-m3のAPI仕様に従ったリクエスト
+                payload = {"inputs": text.strip()}
 
-            response = requests.post(
-                self.embed_endpoint,
-                json=payload,
-                timeout=timeout,
-                headers={"Content-Type": "application/json"}
-            )
+                logger.info(f"Embedding生成開始: テキスト長={len(text)}文字 (試行 {attempt + 1}/{retry})")
 
-            response.raise_for_status()
+                response = requests.post(
+                    self.embed_endpoint,
+                    json=payload,
+                    timeout=timeout,
+                    headers={"Content-Type": "application/json"}
+                )
 
-            # レスポンス形式: [[0.123, 0.456, ...]] (2次元配列)
-            result = response.json()
+                response.raise_for_status()
 
-            if isinstance(result, list) and len(result) > 0:
-                embedding = result[0]  # 最初の要素を取得
-                logger.info(f"Embedding生成成功: 次元数={len(embedding)}")
-                return embedding
-            else:
-                logger.error(f"予期しないレスポンス形式: {result}")
+                # レスポンス形式: [[0.123, 0.456, ...]] (2次元配列)
+                result = response.json()
+
+                if isinstance(result, list) and len(result) > 0:
+                    embedding = result[0]  # 最初の要素を取得
+
+                    # 次元数検証
+                    if len(embedding) != EMBEDDING_DIMENSION:
+                        logger.error(f"不正な次元数: {len(embedding)} != {EMBEDDING_DIMENSION}")
+                        return None
+
+                    logger.info(f"Embedding生成成功: 次元数={len(embedding)}")
+                    return embedding
+                else:
+                    logger.error(f"予期しないレスポンス形式: {result}")
+                    return None
+
+            except requests.exceptions.Timeout:
+                logger.warning(f"タイムアウト (試行 {attempt + 1}/{retry}): {timeout}秒")
+                if attempt < retry - 1:
+                    time.sleep(RETRY_BACKOFF_SECONDS)
+                    continue
+                else:
+                    logger.error("最大リトライ回数に到達しました")
+                    return None
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"API呼び出しエラー (試行 {attempt + 1}/{retry}): {e}")
+                if attempt < retry - 1:
+                    time.sleep(RETRY_BACKOFF_SECONDS)
+                    continue
+                else:
+                    logger.error("最大リトライ回数に到達しました")
+                    return None
+            except (KeyError, IndexError, TypeError) as e:
+                logger.error(f"レスポンス解析エラー: {e}")
                 return None
 
-        except requests.exceptions.Timeout:
-            logger.error(f"タイムアウト: {timeout}秒以内に応答がありませんでした")
-            return None
-        except requests.exceptions.RequestException as e:
-            logger.error(f"API呼び出しエラー: {e}")
-            return None
-        except (KeyError, IndexError, TypeError) as e:
-            logger.error(f"レスポンス解析エラー: {e}")
-            return None
+        return None
 
     def generate_batch(self, texts: List[str], timeout: int = BATCH_TIMEOUT_SECONDS) -> List[Optional[List[float]]]:
         """

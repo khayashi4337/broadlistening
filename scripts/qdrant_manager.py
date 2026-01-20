@@ -20,6 +20,8 @@ DEFAULT_COLLECTION_NAME = "broadlistening_issues"
 DEFAULT_VECTOR_SIZE = 1024
 DEFAULT_DISTANCE_METRIC = "Cosine"
 DEFAULT_HEALTH_TIMEOUT = 5
+DEFAULT_API_TIMEOUT = 30  # API操作のタイムアウト
+MAX_SCROLL_LIMIT = 10000  # スクロール最大件数（セキュリティ）
 
 # ロギング設定
 logging.basicConfig(
@@ -120,6 +122,19 @@ class QdrantManager:
         Returns:
             成功したらTrue
         """
+        # 入力バリデーション
+        if not isinstance(issue_id, int) or issue_id <= 0:
+            logger.error(f"不正なissue_id: {issue_id}")
+            return False
+
+        if not isinstance(embedding, list) or len(embedding) != DEFAULT_VECTOR_SIZE:
+            logger.error(f"不正なembedding次元数: {len(embedding) if isinstance(embedding, list) else 'N/A'}")
+            return False
+
+        if not isinstance(metadata, dict):
+            logger.error("metadataがdictではありません")
+            return False
+
         try:
             upsert_url = f"{self.base_url}/collections/{self.collection_name}/points"
 
@@ -134,7 +149,7 @@ class QdrantManager:
                 ]
             }
 
-            response = requests.put(upsert_url, json=payload)
+            response = requests.put(upsert_url, json=payload, timeout=DEFAULT_API_TIMEOUT)
             response.raise_for_status()
 
             result = response.json()
@@ -167,6 +182,19 @@ class QdrantManager:
         Returns:
             類似Issue一覧（降順）
         """
+        # 入力バリデーション
+        if not isinstance(query_embedding, list) or len(query_embedding) != DEFAULT_VECTOR_SIZE:
+            logger.error(f"不正なembedding次元数: {len(query_embedding) if isinstance(query_embedding, list) else 'N/A'}")
+            return []
+
+        if not isinstance(limit, int) or limit <= 0 or limit > 1000:
+            logger.error(f"不正なlimit値: {limit}")
+            return []
+
+        if not isinstance(score_threshold, (int, float)) or not (0.0 <= score_threshold <= 1.0):
+            logger.error(f"不正なscore_threshold値: {score_threshold}")
+            return []
+
         try:
             search_url = f"{self.base_url}/collections/{self.collection_name}/points/search"
 
@@ -178,7 +206,7 @@ class QdrantManager:
                 "with_vector": False   # ベクトルは不要
             }
 
-            response = requests.post(search_url, json=payload)
+            response = requests.post(search_url, json=payload, timeout=DEFAULT_API_TIMEOUT)
             response.raise_for_status()
 
             result = response.json()
@@ -213,6 +241,11 @@ class QdrantManager:
         Returns:
             全Issueデータ
         """
+        # 入力バリデーション
+        if not isinstance(limit, int) or limit <= 0 or limit > MAX_SCROLL_LIMIT:
+            logger.error(f"不正なlimit値: {limit} (最大: {MAX_SCROLL_LIMIT})")
+            return []
+
         try:
             scroll_url = f"{self.base_url}/collections/{self.collection_name}/points/scroll"
 
@@ -222,7 +255,7 @@ class QdrantManager:
                 "with_vector": True  # 可視化のためベクトルも取得
             }
 
-            response = requests.post(scroll_url, json=payload)
+            response = requests.post(scroll_url, json=payload, timeout=DEFAULT_API_TIMEOUT)
             response.raise_for_status()
 
             result = response.json()

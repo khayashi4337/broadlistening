@@ -24,6 +24,7 @@ DEFAULT_OUTPUT_PATH = "/usr/share/nginx/html/data/issues.json"
 FALLBACK_OUTPUT_PATH = "./web/data/issues.json"
 VIS_JS_SCALE_FACTOR = 500
 TOOLTIP_MAX_LENGTH = 200
+MIN_ISSUES_FOR_PCA = 2  # PCAに必要な最小Issue数
 
 # ロギング設定
 logging.basicConfig(
@@ -58,6 +59,11 @@ class IssueJSONExporter:
         Returns:
             N x 2の座標行列
         """
+        # 入力バリデーション
+        if embeddings.shape[0] < MIN_ISSUES_FOR_PCA:
+            logger.warning(f"Issue数が少なすぎます（{embeddings.shape[0]}件 < {MIN_ISSUES_FOR_PCA}件）。ランダム配置します。")
+            return np.random.randn(len(embeddings), 2)
+
         try:
             # NumPyで簡易PCA（共分散行列の固有値分解）
             embeddings_centered = embeddings - embeddings.mean(axis=0)
