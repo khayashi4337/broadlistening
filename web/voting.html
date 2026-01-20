@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>投票分析 - Broadlistening</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      line-height: 1.6;
+    }
+    header {
+      background: #16213e;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 500;
+    }
+    nav {
+      display: flex;
+      gap: 1.5rem;
+    }
+    nav a {
+      color: #4ecca3;
+      text-decoration: none;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: #16213e;
+      padding: 1.5rem;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #4ecca3;
+    }
+    .stat-value.positive { color: #2ecc71; }
+    .stat-value.negative { color: #e74c3c; }
+    .stat-value.neutral { color: #f39c12; }
+    .stat-label {
+      color: #888;
+      font-size: 0.9rem;
+      margin-top: 0.3rem;
+    }
+    .section {
+      background: #16213e;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .section-title {
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      color: #4ecca3;
+    }
+    /* 合意度メーター */
+    .consensus-meter {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .meter-bar {
+      flex: 1;
+      height: 20px;
+      background: #1a1a2e;
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+    .meter-fill {
+      height: 100%;
+      border-radius: 10px;
+      transition: width 0.5s ease;
+    }
+    .meter-fill.consensus { background: linear-gradient(90deg, #f39c12, #2ecc71); }
+    .meter-fill.division { background: linear-gradient(90deg, #2ecc71, #e74c3c); }
+    .meter-fill.approval { background: linear-gradient(90deg, #e74c3c, #2ecc71); }
+    .meter-label {
+      width: 80px;
+      text-align: right;
+      font-weight: bold;
+    }
+    .meter-value {
+      width: 60px;
+      text-align: left;
+    }
+    /* クラスタ投票傾向 */
+    .cluster-trend-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+    .cluster-trend-item {
+      background: #1a1a2e;
+      padding: 1rem;
+      border-radius: 6px;
+      display: grid;
+      grid-template-columns: 1fr 150px 100px;
+      gap: 1rem;
+      align-items: center;
+    }
+    .cluster-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .cluster-name {
+      font-weight: 500;
+    }
+    .cluster-meta {
+      font-size: 0.85rem;
+      color: #888;
+    }
+    .approval-bar {
+      height: 8px;
+      background: #333;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .approval-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #e74c3c 0%, #f39c12 50%, #2ecc71 100%);
+      border-radius: 4px;
+    }
+    .approval-value {
+      text-align: right;
+      font-weight: bold;
+    }
+    .approval-value.high { color: #2ecc71; }
+    .approval-value.mid { color: #f39c12; }
+    .approval-value.low { color: #e74c3c; }
+    /* Issue投票リスト */
+    .issue-vote-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .issue-vote-item {
+      background: #1a1a2e;
+      padding: 0.8rem 1rem;
+      border-radius: 6px;
+      display: grid;
+      grid-template-columns: 1fr 120px 80px;
+      gap: 1rem;
+      align-items: center;
+    }
+    .issue-title {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .vote-counts {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.9rem;
+    }
+    .vote-positive { color: #2ecc71; }
+    .vote-negative { color: #e74c3c; }
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: #888;
+    }
+    .error {
+      background: #e74c3c20;
+      border: 1px solid #e74c3c;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+    @media (max-width: 768px) {
+      .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .cluster-trend-item {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+      }
+      .issue-vote-item {
+        grid-template-columns: 1fr;
+        gap: 0.3rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📊 投票分析</h1>
+    <nav>
+      <a href="index.html">意見マップ</a>
+      <a href="clusters.html">クラスタ要約</a>
+      <a href="voting.html">投票分析</a>
+    </nav>
+  </header>
+
+  <div class="container">
+    <div id="loading" class="loading">データを読み込み中...</div>
+    <div id="error" class="error" style="display: none;"></div>
+
+    <div id="content" style="display: none;">
+      <!-- 全体サマリー -->
+      <div class="summary-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="total-issues">0</div>
+          <div class="stat-label">総Issue数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value positive" id="total-positive">0</div>
+          <div class="stat-label">👍 賛成</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value negative" id="total-negative">0</div>
+          <div class="stat-label">👎 反対</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="overall-approval">0%</div>
+          <div class="stat-label">全体賛成率</div>
+        </div>
+      </div>
+
+      <!-- 合意度・分断度 -->
+      <div class="section">
+        <h2 class="section-title">合意度・分断度スコア</h2>
+        <div class="consensus-meter">
+          <span class="meter-label">合意度</span>
+          <div class="meter-bar">
+            <div class="meter-fill consensus" id="consensus-bar" style="width: 0%"></div>
+          </div>
+          <span class="meter-value" id="consensus-value">0%</span>
+        </div>
+        <div class="consensus-meter">
+          <span class="meter-label">分断度</span>
+          <div class="meter-bar">
+            <div class="meter-fill division" id="division-bar" style="width: 0%"></div>
+          </div>
+          <span class="meter-value" id="division-value">0%</span>
+        </div>
+        <div class="consensus-meter">
+          <span class="meter-label">信頼度</span>
+          <div class="meter-bar">
+            <div class="meter-fill approval" id="confidence-bar" style="width: 0%"></div>
+          </div>
+          <span class="meter-value" id="confidence-value">0%</span>
+        </div>
+        <p style="color: #888; font-size: 0.85rem; margin-top: 1rem;">
+          合意度: 意見が一方向に偏っているほど高い（全員賛成 or 全員反対）<br>
+          分断度: 賛成/反対が拮抗しているほど高い（50:50に近い）<br>
+          信頼度: 投票数が多いほど統計的に信頼できる
+        </p>
+      </div>
+
+      <!-- クラスタ別投票傾向 -->
+      <div class="section">
+        <h2 class="section-title">クラスタ別投票傾向</h2>
+        <div class="cluster-trend-list" id="cluster-trends"></div>
+      </div>
+
+      <!-- 投票が多いIssue -->
+      <div class="section">
+        <h2 class="section-title">投票が多いIssue</h2>
+        <div class="issue-vote-list" id="issue-votes"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // XSS対策: HTMLエスケープ関数
+    const escapeHTML = (str) => {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+
+    // パーセント表示
+    const toPercent = (value) => Math.round(value * 100) + '%';
+
+    // 賛成率に応じたクラス
+    const getApprovalClass = (rate) => {
+      if (rate >= 0.7) return 'high';
+      if (rate >= 0.4) return 'mid';
+      return 'low';
+    };
+
+    // データ読み込み
+    async function loadData() {
+      try {
+        const response = await fetch('data/voting.json');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+      } catch (error) {
+        throw new Error(`データの読み込みに失敗しました: ${error.message}`);
+      }
+    }
+
+    // サマリー更新
+    function updateSummary(summary) {
+      document.getElementById('total-issues').textContent = summary.total_issues || 0;
+      document.getElementById('total-positive').textContent = summary.total_positive || 0;
+      document.getElementById('total-negative').textContent = summary.total_negative || 0;
+      document.getElementById('overall-approval').textContent = toPercent(summary.overall_approval_rate || 0);
+
+      // 合意度・分断度バー
+      const consensus = summary.overall_consensus || 0;
+      const division = summary.overall_division || 0;
+      const confidence = summary.confidence || 0;
+
+      document.getElementById('consensus-bar').style.width = toPercent(consensus);
+      document.getElementById('consensus-value').textContent = toPercent(consensus);
+
+      document.getElementById('division-bar').style.width = toPercent(division);
+      document.getElementById('division-value').textContent = toPercent(division);
+
+      document.getElementById('confidence-bar').style.width = toPercent(confidence);
+      document.getElementById('confidence-value').textContent = toPercent(confidence);
+    }
+
+    // クラスタ別投票傾向を表示
+    function renderClusterTrends(trends) {
+      const container = document.getElementById('cluster-trends');
+      container.innerHTML = '';
+
+      if (!trends || trends.length === 0) {
+        container.innerHTML = '<p style="color: #888;">クラスタデータがありません</p>';
+        return;
+      }
+
+      trends.forEach(cluster => {
+        const approvalClass = getApprovalClass(cluster.avg_approval_rate);
+        const item = document.createElement('div');
+        item.className = 'cluster-trend-item';
+        item.innerHTML = `
+          <div class="cluster-info">
+            <span class="cluster-name">${escapeHTML(cluster.label)}</span>
+            <span class="cluster-meta">${cluster.issue_count}件 / 投票${cluster.total_votes}票</span>
+          </div>
+          <div class="approval-bar">
+            <div class="approval-fill" style="width: ${cluster.avg_approval_rate * 100}%"></div>
+          </div>
+          <span class="approval-value ${approvalClass}">${toPercent(cluster.avg_approval_rate)}</span>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    // Issue投票リストを表示
+    function renderIssueVotes(issues) {
+      const container = document.getElementById('issue-votes');
+      container.innerHTML = '';
+
+      if (!issues || issues.length === 0) {
+        container.innerHTML = '<p style="color: #888;">投票データがありません</p>';
+        return;
+      }
+
+      issues.slice(0, 50).forEach(issue => {
+        const approvalClass = getApprovalClass(issue.approval_rate);
+        const item = document.createElement('div');
+        item.className = 'issue-vote-item';
+        item.innerHTML = `
+          <span class="issue-title" title="${escapeHTML(issue.title)}">${escapeHTML(issue.title)}</span>
+          <div class="vote-counts">
+            <span class="vote-positive">👍 ${issue.reactions.positive}</span>
+            <span class="vote-negative">👎 ${issue.reactions.negative}</span>
+          </div>
+          <span class="approval-value ${approvalClass}">${toPercent(issue.approval_rate)}</span>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    // 初期化
+    async function init() {
+      const loading = document.getElementById('loading');
+      const error = document.getElementById('error');
+      const content = document.getElementById('content');
+
+      try {
+        const data = await loadData();
+
+        loading.style.display = 'none';
+        content.style.display = 'block';
+
+        updateSummary(data.summary || {});
+        renderClusterTrends(data.cluster_trends || []);
+        renderIssueVotes(data.issues || []);
+
+      } catch (err) {
+        loading.style.display = 'none';
+        error.style.display = 'block';
+        error.textContent = err.message;
+      }
+    }
+
+    // ページ読み込み時に初期化
+    init();
+  </script>
+</body>
+</html>
