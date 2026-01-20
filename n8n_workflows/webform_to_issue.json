@@ -1,0 +1,189 @@
+{
+  "name": "Web Form to Issue Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "submit-opinion",
+        "options": {
+          "responseMode": "responseNode"
+        }
+      },
+      "id": "webform-webhook",
+      "name": "Web Form Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "webform-webhook-id"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-title",
+              "leftValue": "={{ $json.title }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            },
+            {
+              "id": "condition-body",
+              "leftValue": "={{ $json.body }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'タイトルと詳細は必須です' }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "respond-validation-error",
+      "name": "Respond Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [650, 450]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Webフォームからのデータを整形\nconst input = $input.first().json;\n\n// 入力値のサニタイズ（基本的なXSS対策）\nconst sanitize = (str) => {\n  if (!str) return '';\n  return String(str)\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .substring(0, 5000);\n};\n\nconst title = sanitize(input.title).substring(0, 100);\nconst body = sanitize(input.body);\nconst category = input.category || 'その他';\nconst nickname = sanitize(input.nickname) || '匿名';\n\n// ソース情報\nconst source = {\n  type: 'web_form',\n  nickname: nickname,\n  submitted_at: input.source?.submitted_at || new Date().toISOString()\n};\n\n// Issue本文の構築\nconst issueBody = `${body}\\n\\n---\\n**投稿元:** Webフォーム\\n**投稿者:** ${nickname}\\n**カテゴリ:** ${category}`;\n\nreturn [{\n  json: {\n    title: title,\n    body: issueBody,\n    category: category,\n    source: source,\n    labels: ['web-form', 'auto-imported', category.toLowerCase()]\n  }\n}];"
+      },
+      "id": "format-data",
+      "name": "Format Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.FORGEJO_URL }}/api/v1/repos/{{ $env.FORGEJO_OWNER }}/{{ $env.FORGEJO_REPO }}/issues",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": {{ JSON.stringify($json.title) }},\n  \"body\": {{ JSON.stringify($json.body) }},\n  \"labels\": {{ JSON.stringify($json.labels) }}\n}",
+        "options": {}
+      },
+      "id": "create-issue",
+      "name": "Create Forgejo Issue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "forgejo-token",
+          "name": "Forgejo Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, issue_id: $json.id, message: '投稿を受け付けました' }) }}",
+        "options": {
+          "responseCode": 201
+        }
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1050, 200]
+    }
+  ],
+  "connections": {
+    "Web Form Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Format Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Data": {
+      "main": [
+        [
+          {
+            "node": "Create Forgejo Issue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Forgejo Issue": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-20T00:00:00.000Z",
+  "versionId": "1"
+}
