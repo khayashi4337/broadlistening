@@ -81,6 +81,7 @@ desktop.ini
 # ==========================================
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 *~
