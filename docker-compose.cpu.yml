@@ -61,7 +61,7 @@ services:
       dockerfile: Dockerfile.lfm25-transformers
     container_name: broadlistening-llm
     volumes:
-      - huggingface_cache:/root/.cache/huggingface
+      - huggingface_cache:/home/llmuser/.cache/huggingface
     ports:
       - "8080:8080"
     environment:

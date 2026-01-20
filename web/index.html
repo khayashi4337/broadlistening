@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Broadlistening - 意見マップ</title>
-  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <!-- vis-network: バージョン固定でセキュリティ向上 -->
+  <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
   <style>
     * {
       margin: 0;
@@ -146,6 +147,17 @@
   </div>
 
   <script>
+    // XSS対策: HTMLエスケープ関数
+    const escapeHTML = (str) => {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+
     // サンプルデータ（実際はissues.jsonから読み込む）
     const sampleData = {
       clusters: [
@@ -178,8 +190,8 @@
     sampleData.clusters.forEach(cluster => {
       legendEl.innerHTML += `
         <div class="legend-item">
-          <div class="legend-color" style="background: ${cluster.color}"></div>
-          <span>${cluster.label}</span>
+          <div class="legend-color" style="background: ${escapeHTML(cluster.color)}"></div>
+          <span>${escapeHTML(cluster.label)}</span>
         </div>
       `;
     });
@@ -243,14 +255,14 @@
           
           document.getElementById('selected-issue').innerHTML = `
             <div class="issue-card">
-              <div class="issue-title">${issue.title}</div>
+              <div class="issue-title">${escapeHTML(issue.title)}</div>
               <div style="margin: 0.5rem 0;">
-                <span class="tag tag-theme">${sampleData.clusters.find(c => c.id === issue.cluster).label}</span>
-                <span class="tag ${typeClass[issue.type]}">${typeLabel[issue.type]}</span>
+                <span class="tag tag-theme">${escapeHTML(sampleData.clusters.find(c => c.id === issue.cluster).label)}</span>
+                <span class="tag ${escapeHTML(typeClass[issue.type])}">${escapeHTML(typeLabel[issue.type])}</span>
               </div>
               <div class="issue-meta">
-                <span>👍 ${issue.reactions.up}</span>
-                <span>👎 ${issue.reactions.down}</span>
+                <span>👍 ${escapeHTML(issue.reactions.up)}</span>
+                <span>👎 ${escapeHTML(issue.reactions.down)}</span>
               </div>
             </div>
           `;
@@ -264,10 +276,10 @@
       const cluster = sampleData.clusters.find(c => c.id === issue.cluster);
       recentEl.innerHTML += `
         <div class="issue-card">
-          <div class="issue-title">${issue.title}</div>
+          <div class="issue-title">${escapeHTML(issue.title)}</div>
           <div class="issue-meta">
-            <span class="tag tag-theme">${cluster.label}</span>
-            <span>👍 ${issue.reactions.up}</span>
+            <span class="tag tag-theme">${escapeHTML(cluster.label)}</span>
+            <span>👍 ${escapeHTML(issue.reactions.up)}</span>
           </div>
         </div>
       `;

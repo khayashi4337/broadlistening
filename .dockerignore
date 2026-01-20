@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# IDE
+.vscode
+.idea
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Models (downloaded separately)
+models/
+embedding_models/
+*.gguf
+*.bin
+*.safetensors
+
+# Logs and temp
+logs/
+tmp/
+*.log
+
+# Python cache
+__pycache__
+*.py[cod]
+.pytest_cache
+
+# Node
+node_modules
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Development scripts (not needed in image)
+scripts/download_model.sh
+scripts/install_ollama_model.sh
+scripts/test_*.sh
